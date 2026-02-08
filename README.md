@@ -2,6 +2,8 @@
 
 A voice-based AI model for triaging and assessing typhoid fever in rural populations.
 
+#### Video Demo: (here)[]
+
 ## Overview
 
 This conversational AI model helps triage typhoid fever by checking for key symptoms including fever, abdominal pain, and gastrointestinal signs. The model interacts with users through natural conversation, asking clarifying questions before making assessments.
@@ -23,8 +25,10 @@ pre-consultation-agent/
 ├── frontend/                     # User interface
 ├── model/                        # Typhoid prediction model
 │   └── typhoid_model_pred.ipynb
+|   └── typhoid_model.pkl         # saved trained model
 ├── testing/
 │   └── testconversation.py      # CLI test client
+├── typhoid_model_pred.ipynb     # notebook
 └── README.md
 ```
 
