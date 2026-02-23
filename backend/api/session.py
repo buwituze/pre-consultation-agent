@@ -1,0 +1,92 @@
+"""
+session.py — In-memory session store and shared data types.
+
+Each patient visit is a Session. It is created when the patient arrives
+and mutated as the pipeline progresses. Session IDs are the keys.
+"""
+
+import uuid
+from dataclasses import dataclass, field
+from typing import Optional
+from enum import Enum
+
+
+class SessionStage(str, Enum):
+    """Tracks where in the pipeline a session currently is."""
+    AWAITING_AUDIO   = "awaiting_audio"    # Patient has arrived, nothing recorded yet
+    EXTRACTING       = "extracting"        # Model A + B running
+    QUESTIONING      = "questioning"       # Model C loop active
+    SCORING          = "scoring"           # Models D, E, F running
+    COMPLETE         = "complete"          # All done, brief ready for doctor
+
+
+@dataclass
+class ConversationTurn:
+    question: str
+    answer:   str
+
+
+@dataclass
+class Session:
+    id:              str
+    stage:           SessionStage                = SessionStage.AWAITING_AUDIO
+    language:        str                         = "english"
+    patient_age:     Optional[int]               = None
+    location:        str                         = ""
+
+    # Model A output
+    transcript:      str                         = ""
+    transcript_conf: float                       = 0.0
+
+    # Model B output (kept as plain dict to avoid circular imports)
+    extraction:      dict                        = field(default_factory=dict)
+
+    # Model C conversation log
+    turns:           list[ConversationTurn]      = field(default_factory=list)
+
+    # Model D output
+    score:           dict                        = field(default_factory=dict)
+
+    # Model E output
+    patient_message: str                         = ""
+
+    # Model F output
+    doctor_brief:    dict                        = field(default_factory=dict)
+
+    @property
+    def questions_asked(self) -> list[str]:
+        return [t.question for t in self.turns]
+
+    @property
+    def patient_answers(self) -> list[str]:
+        return [t.answer for t in self.turns]
+
+
+# ---------------------------------------------------------------------------
+# Simple in-memory store — swap for Redis or a DB in production
+# ---------------------------------------------------------------------------
+_store: dict[str, Session] = {}
+
+
+def create_session(language: str = "english", patient_age: Optional[int] = None,
+                   location: str = "") -> Session:
+    session = Session(
+        id           = str(uuid.uuid4()),
+        language     = language,
+        patient_age  = patient_age,
+        location     = location,
+    )
+    _store[session.id] = session
+    return session
+
+
+def get_session(session_id: str) -> Optional[Session]:
+    return _store.get(session_id)
+
+
+def delete_session(session_id: str) -> None:
+    _store.pop(session_id, None)
+
+
+def all_session_ids() -> list[str]:
+    return list(_store.keys())

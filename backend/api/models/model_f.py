@@ -1,0 +1,105 @@
+"""
+models/model_f.py — Doctor summary generator wrapper.
+"""
+
+import os, json, re, datetime
+from typing import Optional
+import google.generativeai as genai
+
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+_model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    generation_config=genai.types.GenerationConfig(temperature=0.1, max_output_tokens=512),
+    safety_settings=[{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}],
+)
+
+_SYSTEM = """You are a clinical documentation assistant. Write a patient brief for a doctor.
+Rules:
+- Report only what the patient said and what the system recorded.
+- No clinical interpretation, diagnosis, or advice.
+- Clinical language. Past tense. Concise.
+- Output valid JSON only matching the schema. No extra text."""
+
+
+def _parse(raw: str) -> dict:
+    cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`")
+    match   = re.search(r"\{.*\}", cleaned, re.DOTALL)
+    if not match:
+        raise ValueError("No JSON in response.")
+    return json.loads(match.group(0))
+
+
+def generate_brief(session_id: str, extraction: dict, score: dict,
+                   questions_asked: list[str], patient_answers: list[str],
+                   transcript: str = "", language: str = "english",
+                   patient_age: Optional[int] = None) -> dict:
+    """
+    Generate a structured doctor brief from a completed session.
+
+    Returns a dict with all brief fields ready to send to the clinician dashboard.
+    """
+    assoc   = ", ".join(extraction.get("associated_symptoms", [])) or "none"
+    rf      = "YES" if extraction.get("red_flags_present") else "No" if extraction.get("red_flags_present") is False else "Unknown"
+    convo   = "\n".join(f"  Q: {q}\n  A: {a}" for q, a in zip(questions_asked, patient_answers)) or "  (none)"
+
+    schema = {
+        "narrative_summary": "<2-4 sentence factual summary of what the patient reported>",
+        "key_findings":      ["<key fact>"],
+        "red_flag_note":     "<one sentence if red flag, else empty string>",
+    }
+
+    prompt = f"""Session: {session_id} | Language: {language} | Age: {patient_age or 'unknown'}
+
+Model B — Structured symptoms:
+  Chief complaint : {extraction.get('chief_complaint') or 'not recorded'}
+  Body part       : {extraction.get('body_part') or 'not recorded'}
+  Duration        : {extraction.get('duration') or 'not recorded'}
+  Severity        : {extraction.get('severity') or 'not recorded'}
+  Other symptoms  : {assoc}
+  Red flag        : {rf}
+  Observations    : {extraction.get('additional_observations') or 'none'}
+
+Model C — Conversation:
+{convo}
+
+Model D — Risk score:
+  Priority        : {score.get('priority', 'unknown')}
+  Suspected issue : {score.get('suspected_issue') or 'not determined'}
+  Risk factors    : {', '.join(score.get('risk_factors', [])) or 'none'}
+  Confidence      : {score.get('confidence', 0.0):.2f}
+
+Schema:
+{json.dumps(schema, indent=2)}
+
+Return the populated JSON only."""
+
+    chat = _model.start_chat(history=[
+        {"role": "user",  "parts": [_SYSTEM]},
+        {"role": "model", "parts": ["Understood. JSON brief only, no diagnosis."]},
+    ])
+
+    try:
+        response   = chat.send_message(prompt)
+        gemini_out = _parse(response.text)
+    except Exception:
+        gemini_out = {
+            "narrative_summary": f"Patient reported {extraction.get('chief_complaint') or 'unspecified complaint'}. Duration: {extraction.get('duration') or 'unknown'}. Severity: {extraction.get('severity') or 'unknown'}.",
+            "key_findings":      score.get("risk_factors") or [extraction.get("chief_complaint", "")],
+            "red_flag_note":     "Red flag confirmed by system." if extraction.get("red_flags_present") else "",
+        }
+
+    return {
+        "session_id":        session_id,
+        "timestamp":         datetime.datetime.now().isoformat(),
+        "priority_flag":     score.get("priority", "UNKNOWN"),
+        "suspected_issue":   score.get("suspected_issue", "not determined"),
+        "score_confidence":  score.get("confidence", 0.0),
+        "narrative_summary": gemini_out.get("narrative_summary", ""),
+        "key_findings":      gemini_out.get("key_findings", []),
+        "red_flag_note":     gemini_out.get("red_flag_note", ""),
+        "conversation_log":  [{"question": q, "answer": a} for q, a in zip(questions_asked, patient_answers)],
+        "raw_transcript":    transcript,
+        "language":          language,
+        "patient_age":       patient_age,
+    }
