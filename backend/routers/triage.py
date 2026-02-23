@@ -10,7 +10,7 @@ POST /sessions/{id}/complete
 
 from fastapi import APIRouter, HTTPException
 
-from session import get_session, SessionStage
+from backend.session import get_session, SessionStage
 from models import model_d, model_e, model_f
 
 router = APIRouter(prefix="/sessions", tags=["triage"])

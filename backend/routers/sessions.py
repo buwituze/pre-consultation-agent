@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from session import create_session, get_session, delete_session
+from backend.session import create_session, get_session, delete_session
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
