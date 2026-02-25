@@ -1,11 +1,23 @@
 {
   "welcome": "Welcome",
   "tap_to_start": "Tap to Start",
-  "tap_to_end": "Tap to End",
+  "tap_to_end": "Tap to End Session",
+  "tap_to_answer": "Tap to Answer",
+  "tap_when_done": "Tap When Done Speaking",
   "listening": "Listening...",
   "speaking": "Speaking...",
   "session_active": "Session Active",
   "session_ended": "Session Ended",
   "instruction": "Tap the big button to start your session",
-  "language": "Language"
+  "language": "Language",
+  "processing": "Processing...",
+  "microphone_permission_denied": "Microphone permission is required",
+  "failed_to_start": "Failed to start session",
+  "recording_failed": "Recording failed",
+  "no_audio_recorded": "No audio was recorded",
+  "submission_failed": "Failed to submit audio",
+  "finish_failed": "Failed to complete session",
+  "consultation_complete": "Consultation Complete",
+  "your_queue_number": "Your Queue Number",
+  "done": "Done"
 }
