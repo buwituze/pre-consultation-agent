@@ -4,7 +4,7 @@ routers/transcription.py — Audio intake endpoint.
 POST /sessions/{id}/audio
   → Runs Model A (speech-to-text)
   → Runs Model B (clinical extraction)
-  → Returns the first question from Model C
+  → Returns transcription and extraction only (no questions)
 """
 
 import os
@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from typing import Optional
 
 from session import get_session, SessionStage, ConversationTurn
-from models import model_a, model_b, model_c
+from models import model_a, model_b
 
 MAX_TURNS = int(os.getenv("MAX_TURNS", 6))
 
@@ -26,10 +26,10 @@ async def receive_audio(
     language: Optional[str] = Form(None),  # override auto-detection if known
 ):
     """
-    Accept a patient audio file, transcribe it, extract clinical information,
-    and return the first follow-up question.
+    Accept a patient audio file, transcribe it, and extract clinical information.
+    Does NOT return questions - use the dialogue API for that.
 
-    Transitions session: AWAITING_AUDIO → QUESTIONING
+    Transitions session: AWAITING_AUDIO → AWAITING_AUDIO (stays ready for more processing)
     """
     session = get_session(session_id)
     if not session:
@@ -56,14 +56,8 @@ async def receive_audio(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Extraction failed: {e}")
 
-    # Model C — first question
-    first_question = model_c.select_next_question(
-        extraction      = session.extraction,
-        questions_asked = session.questions_asked,
-        patient_answers = session.patient_answers,
-    )
-
-    session.stage = SessionStage.QUESTIONING
+    # Note: Session stage remains AWAITING_AUDIO until dialogue begins
+    # Call /sessions/{id}/question to start the dialogue and get first question
 
     return {
         "session_id":          session.id,
@@ -72,5 +66,4 @@ async def receive_audio(
         "transcript_language": session.language,
         "transcript_confidence": session.transcript_conf,
         "extraction":          session.extraction,
-        "next_question":       first_question,
     }

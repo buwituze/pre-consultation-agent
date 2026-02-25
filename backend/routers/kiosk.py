@@ -6,12 +6,16 @@ They wrap the pipeline routers with kiosk-specific concerns:
  - returning TTS-ready text
  - routing decisions
  - simple polling for session stage
+ - accepting audio inputs (voice interface)
 
 POST /kiosk/start              → start session, get session_id
-POST /kiosk/{id}/audio         → submit audio, get first question back
-POST /kiosk/{id}/answer        → submit answer, get next question or "done"
+POST /kiosk/{id}/audio         → submit initial audio complaint, get first question back
+POST /kiosk/{id}/answer        → submit audio answer, get next question or "done"
 POST /kiosk/{id}/finish        → trigger scoring, get patient message + routing
 GET  /kiosk/{id}/status        → poll current stage (for frontend state machine)
+
+Note: All patient inputs are AUDIO (voice-based kiosk interface).
+Each answer is transcribed using Model A before processing.
 """
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -95,8 +99,14 @@ async def kiosk_audio(
     language: Optional[str] = Form(None),
 ):
     """
-    Receive patient audio, transcribe it, extract clinical info,
+    Receive patient's initial audio complaint, transcribe it, extract clinical info,
     and return the first follow-up question.
+    
+    This is a convenience wrapper that combines:
+    - POST /sessions/{id}/audio (Models A + B: transcription + extraction)
+    - GET /sessions/{id}/question (Model C: first question)
+    
+    For kiosk simplicity, all three models run in one call.
     """
     session = get_session(session_id)
     if not session:
@@ -106,6 +116,7 @@ async def kiosk_audio(
 
     audio_bytes = await audio.read()
 
+    # Model A — transcribe
     try:
         a_result = model_a.transcribe(audio_bytes, language=language or session.language)
     except Exception as e:
@@ -115,11 +126,13 @@ async def kiosk_audio(
     session.transcript_conf = a_result["mean_confidence"]
     session.language        = language or a_result["dominant_language"]
 
+    # Model B — extract clinical information
     try:
         session.extraction = model_b.extract(session.transcript)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Extraction error: {e}")
 
+    # Model C — get first question
     question = model_c.select_next_question(
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
@@ -135,9 +148,13 @@ async def kiosk_audio(
 
 
 @router.post("/{session_id}/answer", response_model=QuestionResponse)
-def kiosk_answer(session_id: str, question: str = Form(...), answer: str = Form(...)):
+async def kiosk_answer(
+    session_id: str, 
+    question: str = Form(...), 
+    audio: UploadFile = File(...)
+):
     """
-    Submit a patient's answer. Returns the next question, or signals done.
+    Submit a patient's audio answer. Transcribes it and returns the next question, or signals done.
 
     The frontend should:
     - If coverage_complete is False: speak the next question via TTS
@@ -149,14 +166,27 @@ def kiosk_answer(session_id: str, question: str = Form(...), answer: str = Form(
     if session.stage != SessionStage.QUESTIONING:
         raise HTTPException(status_code=409, detail="Session is not in the questioning stage.")
 
+    # Read audio file
+    audio_bytes = await audio.read()
+    
+    # Model A — transcribe the answer
+    try:
+        a_result = model_a.transcribe(audio_bytes, language=session.language)
+        answer = a_result["full_text"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Answer transcription failed: {e}")
+
+    # Record this turn
     session.turns.append(ConversationTurn(question=question, answer=answer))
 
+    # Model B — update extraction
     combined = session.transcript + " " + " ".join(session.patient_answers)
     try:
         session.extraction = model_b.extract(combined)
     except Exception:
         pass
 
+    # Model C — check coverage and get next question
     if model_c.is_coverage_complete(session.extraction, len(session.turns), MAX_TURNS):
         session.stage = SessionStage.SCORING
         return QuestionResponse(session_id=session.id, question="", coverage_complete=True)
