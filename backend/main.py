@@ -10,6 +10,7 @@ Interactive docs: http://localhost:8000/docs
 from dotenv import load_dotenv
 load_dotenv()
 
+import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
@@ -19,8 +20,10 @@ from routers import sessions, transcription, dialogue, triage, kiosk, doctor
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load Whisper models once at startup — this takes ~1-2 min on first run
-    model_a.load_models()
+    # Load Whisper models in background — this takes ~1-2 min on first run
+    # Server will start immediately, models load asynchronously
+    print("🚀 Server starting... Models will load in background")
+    asyncio.create_task(asyncio.to_thread(model_a.load_models))
     yield
 
 
@@ -45,3 +48,9 @@ app.include_router(doctor.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/models/status")
+def models_status():
+    """Check if AI models are loaded and ready."""
+    return model_a.get_models_status()

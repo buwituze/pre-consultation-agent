@@ -15,28 +15,53 @@ from typing import Optional
 SR = 16_000
 DEVICE = os.getenv("DEVICE", "cpu")
 DTYPE  = torch.float16 if DEVICE == "cuda" else torch.float32
+HF_TOKEN = os.getenv("HF_TOKEN")  # Load Hugging Face token from environment
 
 _kin_pipe = None
 _eng_pipe = None
+_models_ready = False
+_loading_status = "not_started"
 
 
 def load_models():
     """Call once at API startup to load both Whisper models into memory."""
-    global _kin_pipe, _eng_pipe
-    _kin_pipe = pipeline(
-        "automatic-speech-recognition",
-        model="akera/whisper-large-v3-kin-200h-v2",
-        torch_dtype=DTYPE,
-        device=DEVICE,
-        return_timestamps=True,
-    )
-    _eng_pipe = pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-large-v3",
-        torch_dtype=DTYPE,
-        device=DEVICE,
-        return_timestamps=True,
-    )
+    global _kin_pipe, _eng_pipe, _models_ready, _loading_status
+    
+    try:
+        _loading_status = "loading_kinyarwanda_model"
+        _kin_pipe = pipeline(
+            "automatic-speech-recognition",
+            model="akera/whisper-large-v3-kin-200h-v2",
+            torch_dtype=DTYPE,
+            device=DEVICE,
+            return_timestamps=True,
+            token=HF_TOKEN,
+        )
+        
+        _loading_status = "loading_english_model"
+        _eng_pipe = pipeline(
+            "automatic-speech-recognition",
+            model="openai/whisper-large-v3",
+            torch_dtype=DTYPE,
+            device=DEVICE,
+            return_timestamps=True,
+            token=HF_TOKEN,
+        )
+        
+        _loading_status = "ready"
+        _models_ready = True
+        print("✓ All Whisper models loaded successfully")
+    except Exception as e:
+        _loading_status = f"error: {str(e)}"
+        print(f"✗ Error loading models: {e}")
+
+
+def get_models_status() -> dict:
+    """Return the current model loading status."""
+    return {
+        "ready": _models_ready,
+        "status": _loading_status
+    }
 
 
 def _detect_language(audio: np.ndarray) -> str:
@@ -71,6 +96,9 @@ def transcribe(audio_bytes: bytes, language: Optional[str] = None) -> dict:
     Returns:
         {"full_text": str, "dominant_language": str, "mean_confidence": float}
     """
+    if not _models_ready:
+        raise RuntimeError(f"Models not ready yet. Status: {_loading_status}")
+    
     import io
     audio, _ = librosa.load(io.BytesIO(audio_bytes), sr=SR, mono=True)
 

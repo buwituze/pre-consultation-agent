@@ -11,7 +11,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.session import get_session, SessionStage, ConversationTurn
+from session import get_session, SessionStage, ConversationTurn
 from models import model_b, model_c
 
 MAX_TURNS = int(os.getenv("MAX_TURNS", 6))
