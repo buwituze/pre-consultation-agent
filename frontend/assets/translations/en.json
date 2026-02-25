@@ -1,0 +1,11 @@
+{
+  "welcome": "Welcome",
+  "tap_to_start": "Tap to Start",
+  "tap_to_end": "Tap to End",
+  "listening": "Listening...",
+  "speaking": "Speaking...",
+  "session_active": "Session Active",
+  "session_ended": "Session Ended",
+  "instruction": "Tap the big button to start your session",
+  "language": "Language"
+}

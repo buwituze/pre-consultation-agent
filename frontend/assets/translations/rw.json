@@ -1,0 +1,11 @@
+{
+  "welcome": "Murakaza neza",
+  "tap_to_start": "Kanda utangire",
+  "tap_to_end": "Kanda urangize",
+  "listening": "Ndumva...",
+  "speaking": "Ndavuga...",
+  "session_active": "Ikiganiro kiragenda",
+  "session_ended": "Ikiganiro kirarangiye",
+  "instruction": "Kanda buto ikomeye utangire ikiganiro",
+  "language": "Ururimi"
+}
