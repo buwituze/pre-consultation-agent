@@ -13,11 +13,11 @@ from enum import Enum
 
 class SessionStage(str, Enum):
     """Tracks where in the pipeline a session currently is."""
-    AWAITING_AUDIO   = "awaiting_audio"    # Patient has arrived, nothing recorded yet
-    EXTRACTING       = "extracting"        # Model A + B running
-    QUESTIONING      = "questioning"       # Model C loop active
-    SCORING          = "scoring"           # Models D, E, F running
-    COMPLETE         = "complete"          # All done, brief ready for doctor
+    AWAITING_AUDIO = "awaiting_audio"   # Patient has arrived, nothing recorded yet
+    EXTRACTING     = "extracting"       # Model A + B running
+    QUESTIONING    = "questioning"      # Model C loop active
+    SCORING        = "scoring"          # Models D, E, F running
+    COMPLETE       = "complete"         # All done, brief ready for doctor
 
 
 @dataclass
@@ -29,29 +29,29 @@ class ConversationTurn:
 @dataclass
 class Session:
     id:              str
-    stage:           SessionStage                = SessionStage.AWAITING_AUDIO
-    language:        str                         = "english"
-    patient_age:     Optional[int]               = None
-    location:        str                         = ""
+    stage:           SessionStage           = SessionStage.AWAITING_AUDIO
+    language:        str                    = "unknown"   # Set after Model A detects from audio
+    patient_age:     Optional[int]          = None
+    location:        str                    = ""
 
     # Model A output
-    transcript:      str                         = ""
-    transcript_conf: float                       = 0.0
+    transcript:      str                    = ""
+    transcript_conf: float                  = 0.0
 
-    # Model B output (kept as plain dict to avoid circular imports)
-    extraction:      dict                        = field(default_factory=dict)
+    # Model B output (plain dict to avoid circular imports)
+    extraction:      dict                   = field(default_factory=dict)
 
     # Model C conversation log
-    turns:           list[ConversationTurn]      = field(default_factory=list)
+    turns:           list[ConversationTurn] = field(default_factory=list)
 
     # Model D output
-    score:           dict                        = field(default_factory=dict)
+    score:           dict                   = field(default_factory=dict)
 
     # Model E output
-    patient_message: str                         = ""
+    patient_message: str                    = ""
 
     # Model F output
-    doctor_brief:    dict                        = field(default_factory=dict)
+    doctor_brief:    dict                   = field(default_factory=dict)
 
     @property
     def questions_asked(self) -> list[str]:
@@ -68,13 +68,13 @@ class Session:
 _store: dict[str, Session] = {}
 
 
-def create_session(language: str = "english", patient_age: Optional[int] = None,
+def create_session(language: str = "unknown", patient_age: Optional[int] = None,
                    location: str = "") -> Session:
     session = Session(
-        id           = str(uuid.uuid4()),
-        language     = language,
-        patient_age  = patient_age,
-        location     = location,
+        id          = str(uuid.uuid4()),
+        language    = language,
+        patient_age = patient_age,
+        location    = location,
     )
     _store[session.id] = session
     return session
