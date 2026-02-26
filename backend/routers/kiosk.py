@@ -1,31 +1,28 @@
 """
 routers/kiosk.py — Patient kiosk interface endpoints.
 
-These are the endpoints the kiosk frontend calls directly.
-They wrap the pipeline routers with kiosk-specific concerns:
- - returning TTS-ready text
- - routing decisions
- - simple polling for session stage
- - accepting audio inputs (voice interface)
-
-POST /kiosk/start              → start session, get session_id
-POST /kiosk/{id}/audio         → submit initial audio complaint, get first question back
+POST /kiosk/start              → start session, get session_id + greeting
+POST /kiosk/{id}/audio         → submit initial audio complaint, get first question
 POST /kiosk/{id}/answer        → submit audio answer, get next question or "done"
 POST /kiosk/{id}/finish        → trigger scoring, get patient message + routing
-GET  /kiosk/{id}/status        → poll current stage (for frontend state machine)
+GET  /kiosk/{id}/status        → poll current stage
 
-Note: All patient inputs are AUDIO (voice-based kiosk interface).
-Each answer is transcribed using Model A before processing.
+Language handling:
+    The frontend sends the patient's selected language (or None if they skipped).
+    Model A always detects language from audio regardless — the selected language
+    is passed as a hint and only used as a tiebreaker, never as an override.
+    This means a patient who selected English but speaks Kinyarwanda will still
+    be correctly transcribed in Kinyarwanda.
 """
 
+import os
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional
 
-from session import get_session, SessionStage, ConversationTurn
+from session import get_session, create_session, SessionStage, ConversationTurn
 from routing import assign_routing
 from models import model_a, model_b, model_c, model_d, model_e, model_f
-import os
 
 MAX_TURNS = int(os.getenv("MAX_TURNS", 6))
 
@@ -37,29 +34,29 @@ router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 # ---------------------------------------------------------------------------
 
 class StartRequest(BaseModel):
-    language:    str           = "english"
+    language:    Optional[str] = None    # Patient's selection, or None if skipped
     patient_age: Optional[int] = None
 
 
 class StartResponse(BaseModel):
-    session_id:    str
-    greeting:      str        # TTS-ready welcome message
+    session_id: str
+    greeting:   str
 
 
 class QuestionResponse(BaseModel):
     session_id:        str
-    question:          str    # TTS-ready question text
+    question:          str
     coverage_complete: bool
 
 
 class FinishResponse(BaseModel):
-    session_id:    str
-    patient_message: str      # TTS-ready guidance message
-    department:    str
-    queue:         str
-    queue_number:  int
-    location_hint: str
-    urgency_label: str
+    session_id:      str
+    patient_message: str
+    department:      str
+    queue:           str
+    queue_number:    int
+    location_hint:   str
+    urgency_label:   str
 
 
 class StatusResponse(BaseModel):
@@ -71,10 +68,13 @@ class StatusResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _greeting(language: str) -> str:
+def _greeting(language: Optional[str]) -> str:
     if language == "kinyarwanda":
         return "Murakaza neza. Ndabifurije kuvuga indwara yanyu. Twatangira?"
-    return "Welcome. I will ask you a few questions about your symptoms. Ready to begin?"
+    if language == "english":
+        return "Welcome. I will ask you a few questions about your symptoms. Ready to begin?"
+    # No selection — offer both
+    return "Welcome / Murakaza neza. Please speak to begin. / Vuga kugirango utangire."
 
 
 # ---------------------------------------------------------------------------
@@ -83,12 +83,17 @@ def _greeting(language: str) -> str:
 
 @router.post("/start", response_model=StartResponse)
 def kiosk_start(body: StartRequest):
-    """Start a new patient session from the kiosk."""
-    from session import create_session
-    session = create_session(language=body.language, patient_age=body.patient_age)
+    """
+    Start a new patient session.
+    language is the patient's screen selection — optional, used as a hint only.
+    """
+    session = create_session(
+        language    = body.language or "unknown",
+        patient_age = body.patient_age,
+    )
     return StartResponse(
         session_id = session.id,
-        greeting   = _greeting(session.language),
+        greeting   = _greeting(body.language),
     )
 
 
@@ -99,14 +104,11 @@ async def kiosk_audio(
     language: Optional[str] = Form(None),
 ):
     """
-    Receive patient's initial audio complaint, transcribe it, extract clinical info,
-    and return the first follow-up question.
-    
-    This is a convenience wrapper that combines:
-    - POST /sessions/{id}/audio (Models A + B: transcription + extraction)
-    - GET /sessions/{id}/question (Model C: first question)
-    
-    For kiosk simplicity, all three models run in one call.
+    Receive patient's initial audio complaint, transcribe it, extract clinical
+    info, and return the first follow-up question.
+
+    language (form field): the patient's screen selection, passed as a hint to
+    Model A. Detection always runs regardless of this value.
     """
     session = get_session(session_id)
     if not session:
@@ -116,23 +118,23 @@ async def kiosk_audio(
 
     audio_bytes = await audio.read()
 
-    # Model A — transcribe
+    # Use session language as hint if not passed directly in the form
+    hint = language or (session.language if session.language != "unknown" else None)
+
     try:
-        a_result = model_a.transcribe(audio_bytes, language=language or session.language)
+        a_result = model_a.transcribe(audio_bytes, language_hint=hint)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription error: {e}")
 
     session.transcript      = a_result["full_text"]
     session.transcript_conf = a_result["mean_confidence"]
-    session.language        = language or a_result["dominant_language"]
+    session.language        = a_result["dominant_language"]  # always update from detection result
 
-    # Model B — extract clinical information
     try:
         session.extraction = model_b.extract(session.transcript)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Extraction error: {e}")
 
-    # Model C — get first question
     question = model_c.select_next_question(
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
@@ -149,16 +151,15 @@ async def kiosk_audio(
 
 @router.post("/{session_id}/answer", response_model=QuestionResponse)
 async def kiosk_answer(
-    session_id: str, 
-    question: str = Form(...), 
-    audio: UploadFile = File(...)
+    session_id: str,
+    question: str = Form(...),
+    audio: UploadFile = File(...),
 ):
     """
-    Submit a patient's audio answer. Transcribes it and returns the next question, or signals done.
+    Submit a patient's audio answer. Transcribes it using the session's
+    detected language, then returns the next question or signals done.
 
-    The frontend should:
-    - If coverage_complete is False: speak the next question via TTS
-    - If coverage_complete is True: call POST /kiosk/{id}/finish
+    When coverage_complete is True, call POST /kiosk/{id}/finish next.
     """
     session = get_session(session_id)
     if not session:
@@ -166,27 +167,23 @@ async def kiosk_answer(
     if session.stage != SessionStage.QUESTIONING:
         raise HTTPException(status_code=409, detail="Session is not in the questioning stage.")
 
-    # Read audio file
     audio_bytes = await audio.read()
-    
-    # Model A — transcribe the answer
+
+    # For answers, use the already-detected session language as the hint
     try:
-        a_result = model_a.transcribe(audio_bytes, language=session.language)
-        answer = a_result["full_text"]
+        a_result = model_a.transcribe(audio_bytes, language_hint=session.language)
+        answer   = a_result["full_text"]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Answer transcription failed: {e}")
 
-    # Record this turn
     session.turns.append(ConversationTurn(question=question, answer=answer))
 
-    # Model B — update extraction
     combined = session.transcript + " " + " ".join(session.patient_answers)
     try:
         session.extraction = model_b.extract(combined)
     except Exception:
         pass
 
-    # Model C — check coverage and get next question
     if model_c.is_coverage_complete(session.extraction, len(session.turns), MAX_TURNS):
         session.stage = SessionStage.SCORING
         return QuestionResponse(session_id=session.id, question="", coverage_complete=True)
@@ -252,7 +249,7 @@ def kiosk_finish(session_id: str):
 
 @router.get("/{session_id}/status", response_model=StatusResponse)
 def kiosk_status(session_id: str):
-    """Poll the current stage of a session (for kiosk frontend state machine)."""
+    """Poll the current stage of a session."""
     session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
