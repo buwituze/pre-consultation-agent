@@ -16,6 +16,7 @@ import io
 import os
 import numpy as np
 import librosa
+import soundfile as sf
 import torch
 from transformers import pipeline
 from typing import Optional
@@ -24,6 +25,10 @@ SR       = 16_000
 DEVICE   = os.getenv("DEVICE", "cpu")
 DTYPE    = torch.float16 if DEVICE == "cuda" else torch.float32
 HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Audio format validation
+MAX_AUDIO_SIZE_MB = 50  # Maximum file size in MB
+MAX_DURATION_SECONDS = 300  # 5 minutes max
 
 _WHISPER_TO_LANG = {
     "rw": "kinyarwanda",
@@ -88,24 +93,40 @@ def _detect_language(audio: np.ndarray, language_hint: Optional[str] = None) -> 
     Returns:
         'kinyarwanda' or 'english'
     """
-    clip = audio[: 10 * SR]  # 10 seconds is enough for detection
+    # Use first 5 seconds for detection (reduced from 10s to save memory/time)
+    clip_duration = min(5 * SR, len(audio))
+    clip = audio[:clip_duration]
+    
+    print(f"  Detection clip: {clip_duration/SR:.1f}s")
+    
     try:
-        result   = _eng_pipe(
+        print("  Running Whisper language detection...", flush=True)
+        
+        result = _eng_pipe(
             {"array": clip, "sampling_rate": SR},
             generate_kwargs={"task": "transcribe", "language": None},
             return_timestamps=False,
         )
+        
         detected = result.get("language")
+        print(f"  Whisper detected: {detected}")
+        
         if detected in _WHISPER_TO_LANG:
             return _WHISPER_TO_LANG[detected]
 
         # Whisper detected something else (e.g. French, Swahili)
         # Use the hint if available, otherwise fall back to default
+        print(f"  Unrecognized language '{detected}', using hint/default")
         if language_hint in ("kinyarwanda", "english"):
             return language_hint
         return _DEFAULT_LANGUAGE
 
-    except Exception:
+    except KeyboardInterrupt:
+        # Don't catch Ctrl+C
+        raise
+    except Exception as e:
+        print(f"  ⚠️ Language detection failed: {type(e).__name__}: {e}")
+        print(f"  Falling back to hint={language_hint} or default={_DEFAULT_LANGUAGE}")
         return language_hint if language_hint in ("kinyarwanda", "english") else _DEFAULT_LANGUAGE
 
 
@@ -119,14 +140,14 @@ def _confidence(chunks: list) -> float:
 
 def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
     """
-    Transcribe raw audio bytes.
+    Transcribe raw audio bytes in WAV format.
 
     Always detects language from audio — language_hint is never used to skip
     detection. It is only used as a fallback when Whisper's detection returns
     an unrecognised language code.
 
     Args:
-        audio_bytes   : Raw audio file content (wav / mp3 / flac).
+        audio_bytes   : Raw audio file content in WAV format.
         language_hint : Language selected by patient on kiosk screen, or None.
 
     Returns:
@@ -136,13 +157,56 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
             "mean_confidence":   float,
             "language_source":   str,  # "detected" | "hint_fallback" | "default_fallback"
         }
+    
+    Raises:
+        RuntimeError: If models not ready, file too large, invalid format, or processing fails.
     """
     if not _models_ready:
         raise RuntimeError(f"Models not ready. Status: {_loading_status}")
 
-    audio, _ = librosa.load(io.BytesIO(audio_bytes), sr=SR, mono=True)
+    # Validate file size
+    size_mb = len(audio_bytes) / (1024 * 1024)
+    if size_mb > MAX_AUDIO_SIZE_MB:
+        raise RuntimeError(
+            f"Audio file too large: {size_mb:.1f}MB. Maximum allowed: {MAX_AUDIO_SIZE_MB}MB. "
+            f"Consider splitting into smaller segments or reducing quality."
+        )
+    
+    if len(audio_bytes) < 100:
+        raise RuntimeError("Audio file too small or corrupted. Minimum size: 100 bytes.")
 
+    # Load audio with librosa (WAV format only for simplicity and reliability)
+    print(f"Loading audio file ({size_mb:.2f}MB)...")
+    try:
+        audio, actual_sr = librosa.load(io.BytesIO(audio_bytes), sr=SR, mono=True)
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "input" in error_msg or "format" in error_msg or "decode" in error_msg:
+            raise RuntimeError(
+                f"Invalid audio format. Only WAV format is supported. "
+                f"Please convert your audio to WAV before uploading. "
+                f"Error details: {e}"
+            )
+        else:
+            raise RuntimeError(f"Failed to load audio file: {e}")
+
+    # Validate duration
+    duration = len(audio) / SR
+    print(f"Audio duration: {duration:.1f}s")
+    
+    if duration < 0.5:
+        raise RuntimeError("Audio too short. Minimum duration: 0.5 seconds.")
+    
+    if duration > MAX_DURATION_SECONDS:
+        raise RuntimeError(
+            f"Audio too long: {duration:.1f}s. Maximum allowed: {MAX_DURATION_SECONDS}s. "
+            f"Please split into smaller segments."
+        )
+
+    # Detect language
+    print(f"Detecting language (hint: {language_hint})...")
     resolved = _detect_language(audio, language_hint)
+    print(f"Language resolved: {resolved}")
 
     if resolved == language_hint:
         source = "hint_fallback"
@@ -154,25 +218,52 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
     pipe       = _kin_pipe if resolved == "kinyarwanda" else _eng_pipe
     lang_token = _LANG_TO_WHISPER.get(resolved, "rw")
 
+    # Process audio in 30-second segments
     seg_len  = 30 * SR
+    num_segments = (len(audio) + seg_len - 1) // seg_len
+    print(f"Processing {num_segments} segment(s) with {resolved} model...")
+    
     segments = []
 
     for i in range(0, len(audio), seg_len):
+        seg_num = (i // seg_len) + 1
+        print(f"  Segment {seg_num}/{num_segments}...", end=" ", flush=True)
+        
         chunk  = audio[i : i + seg_len]
-        result = pipe(
-            {"array": chunk, "sampling_rate": SR},
-            generate_kwargs={"task": "transcribe", "language": lang_token},
-            return_timestamps=True,
-        )
-        chunks = result.get("chunks", [])
-        segments.append({
-            "text":       result.get("text", "").strip(),
-            "confidence": _confidence(chunks),
-        })
+        
+        try:
+            result = pipe(
+                {"array": chunk, "sampling_rate": SR},
+                generate_kwargs={"task": "transcribe", "language": lang_token},
+                return_timestamps=True,
+            )
+            chunks = result.get("chunks", [])
+            text = result.get("text", "").strip()
+            conf = _confidence(chunks)
+            
+            segments.append({
+                "text":       text,
+                "confidence": conf,
+            })
+            print(f"✓ (conf: {conf:.2f})")
+            
+        except KeyboardInterrupt:
+            print("✗ Interrupted")
+            raise
+        except Exception as e:
+            print(f"✗ Error: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError(f"Transcription failed at segment {seg_num}/{num_segments}: {type(e).__name__}: {e}")
+
+    full_text = " ".join(s["text"] for s in segments if s["text"])
+    mean_conf = round(float(np.mean([s["confidence"] for s in segments])), 3)
+    
+    print(f"Transcription complete. Text length: {len(full_text)} chars, Confidence: {mean_conf:.2%}")
 
     return {
-        "full_text":         " ".join(s["text"] for s in segments if s["text"]),
+        "full_text":         full_text,
         "dominant_language": resolved,
-        "mean_confidence":   round(float(np.mean([s["confidence"] for s in segments])), 3),
+        "mean_confidence":   mean_conf,
         "language_source":   source,
     }

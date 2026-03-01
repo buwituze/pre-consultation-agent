@@ -30,8 +30,11 @@ class StartSessionResponse(BaseModel):
 @router.post("", response_model=StartSessionResponse)
 def start_session(body: StartSessionRequest):
     """Create a new patient session and return its ID."""
+    # Normalize language to lowercase for consistency
+    normalized_language = body.language.lower() if body.language else "unknown"
+    
     session = create_session(
-        language    = body.language or "unknown",
+        language    = normalized_language,
         patient_age = body.patient_age,
         location    = body.location,
     )

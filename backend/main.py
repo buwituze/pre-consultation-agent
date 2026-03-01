@@ -12,6 +12,7 @@ load_dotenv()
 
 import asyncio
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from models import model_a
@@ -32,6 +33,15 @@ app = FastAPI(
     description="Voice-based triage pipeline for Kinyarwanda and English patients.",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# CORS middleware for Flutter web app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins like ["http://localhost:PORT"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Internal pipeline — model-to-model orchestration

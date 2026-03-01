@@ -13,9 +13,12 @@ Language handling:
     is passed as a hint and only used as a tiebreaker, never as an override.
     This means a patient who selected English but speaks Kinyarwanda will still
     be correctly transcribed in Kinyarwanda.
-"""
+AUDIO FORMAT REQUIREMENT:
+    Only WAV format is supported. See backend/AUDIO_FORMAT.md for details.
+    Frontend apps should record audio in WAV format (16kHz mono recommended)."""
 
 import os
+import asyncio
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional
@@ -87,13 +90,27 @@ def kiosk_start(body: StartRequest):
     Start a new patient session.
     language is the patient's screen selection — optional, used as a hint only.
     """
+    print("\n" + "="*80)
+    print("🚀 NEW SESSION STARTED")
+    print(f"Language selected: {body.language}")
+    print(f"Patient Age: {body.patient_age}")
+    
+    # Normalize language to lowercase for consistency
+    normalized_language = body.language.lower() if body.language else "unknown"
+    
     session = create_session(
-        language    = body.language or "unknown",
+        language    = normalized_language,
         patient_age = body.patient_age,
     )
+    greeting = _greeting(normalized_language)
+    
+    print(f"Session ID: {session.id}")
+    print(f"💬 Greeting: '{greeting}'")
+    print("="*80 + "\n")
+    
     return StartResponse(
         session_id = session.id,
-        greeting   = _greeting(body.language),
+        greeting   = greeting,
     )
 
 
@@ -110,6 +127,10 @@ async def kiosk_audio(
     language (form field): the patient's screen selection, passed as a hint to
     Model A. Detection always runs regardless of this value.
     """
+    print("\n" + "="*80)
+    print("🎤 INITIAL AUDIO RECEIVED")
+    print(f"Session ID: {session_id}")
+    
     session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -117,30 +138,54 @@ async def kiosk_audio(
         raise HTTPException(status_code=409, detail="Audio already submitted for this session.")
 
     audio_bytes = await audio.read()
+    print(f"Audio size: {len(audio_bytes)} bytes")
 
     # Use session language as hint if not passed directly in the form
-    hint = language or (session.language if session.language != "unknown" else None)
+    # Normalize language to lowercase for consistency
+    hint = language.lower() if language else (session.language if session.language != "unknown" else None)
+    print(f"Language hint: {hint}")
 
+    print("\n🔄 Running Model A (Speech-to-Text)...")
     try:
-        a_result = model_a.transcribe(audio_bytes, language_hint=hint)
+        a_result = await asyncio.to_thread(model_a.transcribe, audio_bytes, language_hint=hint)
+        print(f"✅ Transcription successful!")
+        print(f"📝 PATIENT SAID: '{a_result['full_text']}'")
+        print(f"   Confidence: {a_result['mean_confidence']:.2%}")
+        print(f"   Language detected: {a_result['dominant_language']}")
+    except KeyboardInterrupt:
+        print("❌ Interrupted by user")
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Transcription error: {e}")
+        print(f"❌ Transcription error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Transcription error: {type(e).__name__}: {e}")
 
     session.transcript      = a_result["full_text"]
     session.transcript_conf = a_result["mean_confidence"]
     session.language        = a_result["dominant_language"]  # always update from detection result
 
+    print("\n🔄 Running Model B (Clinical Extraction)...")
     try:
-        session.extraction = model_b.extract(session.transcript)
+        session.extraction = await asyncio.to_thread(model_b.extract, session.transcript)
+        print(f"✅ Extraction successful!")
+        print(f"   Extracted: {session.extraction}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Extraction error: {e}")
+        print(f"❌ Extraction error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Extraction error: {type(e).__name__}: {e}")
 
+    print("\n🔄 Running Model C (Question Generation)...")
     question = model_c.select_next_question(
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
     )
     session.stage = SessionStage.QUESTIONING
+    print(f"✅ Question generated!")
+    print(f"💬 ASSISTANT ASKS: '{question}'")
+    print("="*80 + "\n")
 
     return QuestionResponse(
         session_id        = session.id,
@@ -161,6 +206,11 @@ async def kiosk_answer(
 
     When coverage_complete is True, call POST /kiosk/{id}/finish next.
     """
+    print("\n" + "="*80)
+    print("🎤 ANSWER AUDIO RECEIVED")
+    print(f"Session ID: {session_id}")
+    print(f"Previous question: '{question}'")
+    
     session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -168,36 +218,52 @@ async def kiosk_answer(
         raise HTTPException(status_code=409, detail="Session is not in the questioning stage.")
 
     audio_bytes = await audio.read()
+    print(f"Audio size: {len(audio_bytes)} bytes")
 
     # For answers, use the already-detected session language as the hint
+    print(f"\n🔄 Running Model A (Transcribing answer in {session.language})...")
     try:
-        a_result = model_a.transcribe(audio_bytes, language_hint=session.language)
+        a_result = await asyncio.to_thread(model_a.transcribe, audio_bytes, language_hint=session.language)
         answer   = a_result["full_text"]
+        print(f"✅ Transcription successful!")
+        print(f"📝 PATIENT ANSWERED: '{answer}'")
+        print(f"   Confidence: {a_result['mean_confidence']:.2%}")
     except Exception as e:
+        print(f"❌ Answer transcription failed: {e}")
         raise HTTPException(status_code=500, detail=f"Answer transcription failed: {e}")
 
     session.turns.append(ConversationTurn(question=question, answer=answer))
+    print(f"Turn #{len(session.turns)} recorded")
 
+    print("\n🔄 Running Model B (Updating extraction)...")
     combined = session.transcript + " " + " ".join(session.patient_answers)
     try:
-        session.extraction = model_b.extract(combined)
-    except Exception:
-        pass
+        session.extraction = await asyncio.to_thread(model_b.extract, combined)
+        print(f"✅ Extraction updated: {session.extraction}")
+    except Exception as e:
+        print(f"⚠️ Extraction update failed (continuing): {e}")
 
+    print("\n🔄 Running Model C (Checking coverage)...")
     if model_c.is_coverage_complete(session.extraction, len(session.turns), MAX_TURNS):
         session.stage = SessionStage.SCORING
+        print(f"✅ Coverage complete! ({len(session.turns)} turns completed)")
+        print("="*80 + "\n")
         return QuestionResponse(session_id=session.id, question="", coverage_complete=True)
 
+    print(f"📊 Coverage not yet complete ({len(session.turns)}/{MAX_TURNS} turns)")
     next_q = model_c.select_next_question(
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
     )
+    print(f"✅ Next question generated!")
+    print(f"💬 ASSISTANT ASKS: '{next_q}'")
+    print("="*80 + "\n")
     return QuestionResponse(session_id=session.id, question=next_q, coverage_complete=False)
 
 
 @router.post("/{session_id}/finish", response_model=FinishResponse)
-def kiosk_finish(session_id: str):
+async def kiosk_finish(session_id: str):
     """
     Finalise the session. Runs Models D, E, F and returns
     the patient message and routing decision.
@@ -208,14 +274,15 @@ def kiosk_finish(session_id: str):
     if session.stage != SessionStage.SCORING:
         raise HTTPException(status_code=409, detail="Session is not ready to finish.")
 
-    session.score = model_d.score(session.extraction, age=session.patient_age)
+    session.score = await asyncio.to_thread(model_d.score, session.extraction, age=session.patient_age)
 
     routing = assign_routing(
         priority        = session.score["priority"],
         suspected_issue = session.score["suspected_issue"],
     )
 
-    session.patient_message = model_e.generate_message(
+    session.patient_message = await asyncio.to_thread(
+        model_e.generate_message,
         extraction     = session.extraction,
         score          = session.score,
         language       = session.language,
@@ -223,7 +290,8 @@ def kiosk_finish(session_id: str):
         low_confidence = session.score.get("confidence", 1.0) < 0.4,
     )
 
-    session.doctor_brief = model_f.generate_brief(
+    session.doctor_brief = await asyncio.to_thread(
+        model_f.generate_brief,
         session_id      = session.id,
         extraction      = session.extraction,
         score           = session.score,

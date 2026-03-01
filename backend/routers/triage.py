@@ -8,6 +8,7 @@ POST /sessions/{id}/complete
   → Returns both outputs
 """
 
+import asyncio
 from fastapi import APIRouter, HTTPException
 
 from session import get_session, SessionStage
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/sessions", tags=["triage"])
 
 
 @router.post("/{session_id}/complete")
-def complete_session(session_id: str):
+async def complete_session(session_id: str):
     """
     Finalise a session. Runs Models D, E, and F in sequence and returns:
     - patient_message: what to say/display to the patient
@@ -32,13 +33,15 @@ def complete_session(session_id: str):
         raise HTTPException(status_code=409, detail=f"Session is in stage '{session.stage.value}', not ready for scoring.")
 
     # Model D — risk score
-    session.score = model_d.score(
+    session.score = await asyncio.to_thread(
+        model_d.score,
         extraction = session.extraction,
         age        = session.patient_age,
     )
 
     # Model E — patient message
-    session.patient_message = model_e.generate_message(
+    session.patient_message = await asyncio.to_thread(
+        model_e.generate_message,
         extraction     = session.extraction,
         score          = session.score,
         language       = session.language,
@@ -47,7 +50,8 @@ def complete_session(session_id: str):
     )
 
     # Model F — doctor brief
-    session.doctor_brief = model_f.generate_brief(
+    session.doctor_brief = await asyncio.to_thread(
+        model_f.generate_brief,
         session_id      = session.id,
         extraction      = session.extraction,
         score           = session.score,

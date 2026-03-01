@@ -22,6 +22,7 @@ Note: /answer and /answer-audio are internal/debug routes.
 """
 
 import os
+import asyncio
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
@@ -91,7 +92,7 @@ def get_next_question(session_id: str):
 
 
 @router.post("/{session_id}/answer")
-def submit_answer(session_id: str, body: AnswerRequest):
+async def submit_answer(session_id: str, body: AnswerRequest):
     """
     Record a pre-transcribed patient answer and return the next question.
     For audio answers use POST /sessions/{id}/answer-audio instead.
@@ -111,7 +112,7 @@ def submit_answer(session_id: str, body: AnswerRequest):
 
     combined = session.transcript + " " + " ".join(session.patient_answers)
     try:
-        session.extraction = model_b.extract(combined)
+        session.extraction = await asyncio.to_thread(model_b.extract, combined)
     except Exception:
         pass
 
@@ -170,7 +171,7 @@ async def submit_answer_audio(
     hint = session.language if session.language != "unknown" else None
 
     try:
-        a_result    = model_a.transcribe(audio_bytes, language_hint=hint)
+        a_result    = await asyncio.to_thread(model_a.transcribe, audio_bytes, language_hint=hint)
         answer_text = a_result["full_text"]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Answer transcription failed: {e}")
@@ -179,7 +180,7 @@ async def submit_answer_audio(
 
     combined = session.transcript + " " + " ".join(session.patient_answers)
     try:
-        session.extraction = model_b.extract(combined)
+        session.extraction = await asyncio.to_thread(model_b.extract, combined)
     except Exception:
         pass
 
