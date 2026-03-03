@@ -102,13 +102,17 @@ def _detect_language(audio: np.ndarray, language_hint: Optional[str] = None) -> 
     try:
         print("  Running Whisper language detection...", flush=True)
         
-        # Convert numpy array to WAV bytes to avoid transformers version issues
+        # Convert numpy array to WAV bytes and reload with librosa
+        # This ensures transformers gets the proper format with num_frames
         clip_bytes = io.BytesIO()
         sf.write(clip_bytes, clip, SR, format='WAV')
         clip_bytes.seek(0)
         
+        # Reload as audio array - this adds the needed metadata
+        clip_reloaded, _ = librosa.load(clip_bytes, sr=SR, mono=True)
+        
         result = _eng_pipe(
-            clip_bytes.read(),
+            {"array": clip_reloaded, "sampling_rate": SR},
             generate_kwargs={"task": "transcribe", "language": None},
             return_timestamps=False,
         )
@@ -237,13 +241,17 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
         chunk  = audio[i : i + seg_len]
         
         try:
-            # Convert numpy array to WAV bytes to avoid transformers version issues
+            # Convert numpy array to WAV bytes and reload with librosa
+            # This ensures transformers gets the proper format with num_frames
             chunk_bytes = io.BytesIO()
             sf.write(chunk_bytes, chunk, SR, format='WAV')
             chunk_bytes.seek(0)
             
+            # Reload as audio array - this adds the needed metadata
+            chunk_reloaded, _ = librosa.load(chunk_bytes, sr=SR, mono=True)
+            
             result = pipe(
-                chunk_bytes.read(),
+                {"array": chunk_reloaded, "sampling_rate": SR},
                 generate_kwargs={"task": "transcribe", "language": lang_token},
                 return_timestamps=True,
             )
