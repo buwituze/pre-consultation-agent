@@ -102,8 +102,13 @@ def _detect_language(audio: np.ndarray, language_hint: Optional[str] = None) -> 
     try:
         print("  Running Whisper language detection...", flush=True)
         
+        # Convert numpy array to WAV bytes to avoid transformers version issues
+        clip_bytes = io.BytesIO()
+        sf.write(clip_bytes, clip, SR, format='WAV')
+        clip_bytes.seek(0)
+        
         result = _eng_pipe(
-            {"array": clip, "sampling_rate": SR},
+            clip_bytes.read(),
             generate_kwargs={"task": "transcribe", "language": None},
             return_timestamps=False,
         )
@@ -232,8 +237,13 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
         chunk  = audio[i : i + seg_len]
         
         try:
+            # Convert numpy array to WAV bytes to avoid transformers version issues
+            chunk_bytes = io.BytesIO()
+            sf.write(chunk_bytes, chunk, SR, format='WAV')
+            chunk_bytes.seek(0)
+            
             result = pipe(
-                {"array": chunk, "sampling_rate": SR},
+                chunk_bytes.read(),
                 generate_kwargs={"task": "transcribe", "language": lang_token},
                 return_timestamps=True,
             )
