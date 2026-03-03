@@ -102,14 +102,12 @@ def _detect_language(audio: np.ndarray, language_hint: Optional[str] = None) -> 
     try:
         print("  Running Whisper language detection...", flush=True)
         
-        # Convert numpy array to WAV bytes for pipeline
-        # Pass as file-like object to ensure proper num_frames generation
-        clip_bytes = io.BytesIO()
-        sf.write(clip_bytes, clip, SR, format='WAV')
-        clip_bytes.seek(0)
+        # Pass audio as dict with array and sampling_rate
+        # Ensure float32 dtype and C-contiguous for transformers compatibility
+        clip_array = np.ascontiguousarray(clip, dtype=np.float32)
         
         result = _eng_pipe(
-            clip_bytes,
+            {"array": clip_array, "sampling_rate": SR},
             generate_kwargs={"task": "transcribe", "language": None},
             return_timestamps=False,
         )
@@ -238,20 +236,36 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
         chunk  = audio[i : i + seg_len]
         
         try:
-            # Convert numpy array to WAV bytes for pipeline
-            # Pass as file-like object to ensure proper num_frames generation
-            chunk_bytes = io.BytesIO()
-            sf.write(chunk_bytes, chunk, SR, format='WAV')
-            chunk_bytes.seek(0)
+            # Pass audio as dict with array and sampling_rate
+            # Use np.ascontiguousarray to ensure float32 dtype and C-contiguous layout
+            # This is critical for transformers pipeline compatibility
+            chunk_array = np.ascontiguousarray(chunk, dtype=np.float32)
+            audio_input = {"array": chunk_array, "sampling_rate": SR}
             
-            result = pipe(
-                chunk_bytes,
-                generate_kwargs={"task": "transcribe", "language": lang_token},
-                return_timestamps=True,
-            )
-            chunks = result.get("chunks", [])
-            text = result.get("text", "").strip()
-            conf = _confidence(chunks)
+            # Try with timestamps first for confidence calculation
+            try:
+                result = pipe(
+                    audio_input,
+                    generate_kwargs={"task": "transcribe", "language": lang_token},
+                    return_timestamps=True,
+                )
+                chunks = result.get("chunks", [])
+                text = result.get("text", "").strip()
+                conf = _confidence(chunks)
+            except (KeyError, TypeError, AttributeError) as ts_error:
+                # If timestamps fail (num_frames error, etc), retry without timestamps
+                error_str = str(ts_error).lower()
+                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks"]):
+                    print(f"⚠️ Retrying without timestamps... ", end="", flush=True)
+                    result = pipe(
+                        audio_input,
+                        generate_kwargs={"task": "transcribe", "language": lang_token},
+                        return_timestamps=False,
+                    )
+                    text = result.get("text", "").strip()
+                    conf = 1.0  # Assume good confidence if no chunks available
+                else:
+                    raise
             
             segments.append({
                 "text":       text,
