@@ -102,12 +102,12 @@ def _detect_language(audio: np.ndarray, language_hint: Optional[str] = None) -> 
     try:
         print("  Running Whisper language detection...", flush=True)
         
-        # Pass audio as dict with array and sampling_rate
+        # Pass audio as dict with 'raw' key (required by transformers >= 4.x)
         # Ensure float32 dtype and C-contiguous for transformers compatibility
         clip_array = np.ascontiguousarray(clip, dtype=np.float32)
         
         result = _eng_pipe(
-            {"array": clip_array, "sampling_rate": SR},
+            {"raw": clip_array, "sampling_rate": SR},
             generate_kwargs={"task": "transcribe", "language": None},
             return_timestamps=False,
         )
@@ -236,11 +236,11 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
         chunk  = audio[i : i + seg_len]
         
         try:
-            # Pass audio as dict with array and sampling_rate
+            # Pass audio as dict with 'raw' key (required by transformers >= 4.x)
             # Use np.ascontiguousarray to ensure float32 dtype and C-contiguous layout
             # This is critical for transformers pipeline compatibility
             chunk_array = np.ascontiguousarray(chunk, dtype=np.float32)
-            audio_input = {"array": chunk_array, "sampling_rate": SR}
+            audio_input = {"raw": chunk_array, "sampling_rate": SR}
             
             # Try with timestamps first for confidence calculation
             try:
