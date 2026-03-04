@@ -102,12 +102,12 @@ def _detect_language(audio: np.ndarray, language_hint: Optional[str] = None) -> 
     try:
         print("  Running Whisper language detection...", flush=True)
         
-        # Pass audio as dict with 'raw' key (required by transformers >= 4.x)
-        # Ensure float32 dtype and C-contiguous for transformers compatibility
+        # Pass audio array directly - transformers pipeline handles sampling rate internally
+        # Ensure float32 dtype and C-contiguous for compatibility
         clip_array = np.ascontiguousarray(clip, dtype=np.float32)
         
         result = _eng_pipe(
-            {"raw": clip_array, "sampling_rate": SR},
+            clip_array,
             generate_kwargs={"task": "transcribe", "language": None},
             return_timestamps=False,
         )
@@ -236,16 +236,14 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
         chunk  = audio[i : i + seg_len]
         
         try:
-            # Pass audio as dict with 'raw' key (required by transformers >= 4.x)
-            # Use np.ascontiguousarray to ensure float32 dtype and C-contiguous layout
-            # This is critical for transformers pipeline compatibility
+            # Pass audio array directly - transformers pipeline handles sampling rate internally
+            # Ensure float32 dtype and C-contiguous for compatibility
             chunk_array = np.ascontiguousarray(chunk, dtype=np.float32)
-            audio_input = {"raw": chunk_array, "sampling_rate": SR}
             
             # Try with timestamps first for confidence calculation
             try:
                 result = pipe(
-                    audio_input,
+                    chunk_array,
                     generate_kwargs={"task": "transcribe", "language": lang_token},
                     return_timestamps=True,
                 )
@@ -258,7 +256,7 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
                 if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks"]):
                     print(f"⚠️ Retrying without timestamps... ", end="", flush=True)
                     result = pipe(
-                        audio_input,
+                        chunk_array,
                         generate_kwargs={"task": "transcribe", "language": lang_token},
                         return_timestamps=False,
                     )
