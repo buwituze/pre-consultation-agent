@@ -242,7 +242,7 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
             try:
                 result = pipe(
                     chunk_array,
-                    generate_kwargs={"task": "transcribe", "language": lang_token},
+                    generate_kwargs={"task": "transcribe"},
                     return_timestamps=True,
                 )
                 chunks = result.get("chunks", [])
@@ -251,11 +251,11 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
             except (KeyError, TypeError, AttributeError, ValueError) as ts_error:
                 # If timestamps fail (generation config, num_frames error, etc), retry without timestamps
                 error_str = str(ts_error).lower()
-                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks", "timestamps", "generation config", "no_timestamps_token_id"]):
+                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks", "timestamps", "generation config", "no_timestamps_token_id", "lang_to_id", "language"]):
                     print(f"⚠️ Retrying without timestamps... ", end="", flush=True)
                     result = pipe(
                         chunk_array,
-                        generate_kwargs={"task": "transcribe", "language": lang_token},
+                        generate_kwargs={"task": "transcribe"},
                         return_timestamps=False,
                     )
                     text = result.get("text", "").strip()
