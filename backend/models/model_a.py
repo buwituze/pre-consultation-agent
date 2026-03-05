@@ -18,7 +18,7 @@ import numpy as np
 import librosa
 import soundfile as sf
 import torch
-from transformers import pipeline
+from transformers import pipeline, GenerationConfig
 from typing import Optional
 
 SR       = 16_000
@@ -65,6 +65,13 @@ def load_models():
             device=DEVICE,
             token=HF_TOKEN,
         )
+        
+        # Fix outdated generation config in fine-tuned Kinyarwanda model
+        # Copy the correct config from the base OpenAI model
+        _loading_status = "fixing_generation_config"
+        print("Fixing Kinyarwanda model generation config...")
+        _kin_pipe.model.generation_config = GenerationConfig.from_pretrained("openai/whisper-large-v3")
+        print("Generation config updated.")
 
         _loading_status = "ready"
         _models_ready   = True
@@ -242,20 +249,20 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
             try:
                 result = pipe(
                     chunk_array,
-                    generate_kwargs={"task": "transcribe"},
+                    generate_kwargs={"task": "transcribe", "language": lang_token},
                     return_timestamps=True,
                 )
                 chunks = result.get("chunks", [])
                 text = result.get("text", "").strip()
                 conf = _confidence(chunks)
             except (KeyError, TypeError, AttributeError, ValueError) as ts_error:
-                # If timestamps fail (generation config, num_frames error, etc), retry without timestamps
+                # If timestamps fail (num_frames error, etc), retry without timestamps
                 error_str = str(ts_error).lower()
-                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks", "timestamps", "generation config", "no_timestamps_token_id", "lang_to_id", "language"]):
+                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks", "timestamps"]):
                     print(f"⚠️ Retrying without timestamps... ", end="", flush=True)
                     result = pipe(
                         chunk_array,
-                        generate_kwargs={"task": "transcribe"},
+                        generate_kwargs={"task": "transcribe", "language": lang_token},
                         return_timestamps=False,
                     )
                     text = result.get("text", "").strip()
