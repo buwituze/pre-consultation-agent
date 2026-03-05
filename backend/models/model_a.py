@@ -248,10 +248,10 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
                 chunks = result.get("chunks", [])
                 text = result.get("text", "").strip()
                 conf = _confidence(chunks)
-            except (KeyError, TypeError, AttributeError) as ts_error:
-                # If timestamps fail (num_frames error, etc), retry without timestamps
+            except (KeyError, TypeError, AttributeError, ValueError) as ts_error:
+                # If timestamps fail (generation config, num_frames error, etc), retry without timestamps
                 error_str = str(ts_error).lower()
-                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks"]):
+                if any(x in error_str for x in ["num_frames", "numpy ndarray", "chunks", "timestamps", "generation config", "no_timestamps_token_id"]):
                     print(f"⚠️ Retrying without timestamps... ", end="", flush=True)
                     result = pipe(
                         chunk_array,
