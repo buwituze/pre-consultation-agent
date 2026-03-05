@@ -1,6 +1,16 @@
 # Backend - Pre-Consultation Agent
 
-Voice-based medical consultation system backend with PostgreSQL database.
+Voice-based pre-consultation and triage system backend with PostgreSQL database. This system acts as a data collection point for hospital-owned equipment, supporting Kinyarwanda and English voice interactions.
+
+## Purpose
+
+This backend powers a supervised consultation support tool that:
+
+- Collects structured patient data through voice interaction
+- Manages consultation sessions and patient queues
+- Generates summaries for healthcare workers
+- Routes patients to appropriate departments
+- Stores conversation history and extracted symptoms
 
 ## Quick Setup
 
@@ -39,7 +49,7 @@ python test_database.py
 ### 5. Run API
 
 ```bash
-python conversationalAPI.py
+python main.py
 ```
 
 ## Python Usage
@@ -49,21 +59,28 @@ from database import DatabaseConnection, PatientDB, SessionDB
 
 DatabaseConnection.initialize_pool()
 
+# Create a new patient record
 patient = PatientDB.create_patient("Marie Uwimana", "+250788123456", "kinyarwanda")
+
+# Start a consultation session
 session = SessionDB.create_session(patient['patient_id'])
-SessionDB.update_prediction_info(session['session_id'], "Suspected Typhoid", 0.8523)
+
+# Update with risk assessment and suggestions
+SessionDB.update_prediction_info(session['session_id'], "Urgent - Chest Pain", 0.85)
+
+# Close the session when consultation is complete
 SessionDB.close_session(session['session_id'])
 ```
 
 ## Database Tables
 
-- `patient` - Patient records
-- `healthcare_worker` - Medical staff
-- `session` - Consultation sessions
-- `conversation_message` - Message history
-- `symptom` - Extracted symptoms
-- `prediction` - ML predictions
-- `prescription` - Medications prescribed
+- `patient` - Patient records and contact information
+- `healthcare_worker` - Medical staff credentials
+- `session` - Consultation sessions with status and outcomes
+- `conversation_message` - Complete message history for each session
+- `symptom` - Extracted symptoms and medical observations
+- `prediction` - Risk assessments and triage recommendations
+- `prescription` - Treatment recommendations and prescriptions
 
 ## Views
 
