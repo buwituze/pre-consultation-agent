@@ -14,11 +14,18 @@ Language handling:
     This means a patient who selected English but speaks Kinyarwanda will still
     be correctly transcribed in Kinyarwanda.
 AUDIO FORMAT REQUIREMENT:
-    Only WAV format is supported. See backend/AUDIO_FORMAT.md for details.
-    Frontend apps should record audio in WAV format (16kHz mono recommended)."""
+only WAV format is supported. See backend/AUDIO_FORMAT.md for details.
+    Frontend apps should record audio in WAV format (16kHz mono recommended).
+    
+Data persistence:
+    Sessions live in memory during conversation for speed.
+    Audio files and all data are persisted to database only when session completes.
+"""
 
 import os
 import asyncio
+import uuid
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional
@@ -26,6 +33,20 @@ from typing import Optional
 from session import get_session, create_session, SessionStage, ConversationTurn
 from routing import assign_routing
 from models import model_a, model_b, model_c, model_d, model_e, model_f
+from database.database import (
+    PatientDB, SessionDB, ConversationDB, SymptomDB, PredictionDB,
+    AudioDB, QueueDB, ExtendedSessionDB, DatabaseConnection
+)
+
+# Initialize database connection pool
+try:
+    DatabaseConnection.initialize_pool()
+except:
+    pass  # May already be initialized
+
+# Audio storage directory
+AUDIO_DIR = Path(os.getenv("AUDIO_STORAGE_DIR", "data/audio"))
+AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_TURNS = int(os.getenv("MAX_TURNS", 6))
 
@@ -39,6 +60,10 @@ router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 class StartRequest(BaseModel):
     language:    Optional[str] = None    # Patient's selection, or None if skipped
     patient_age: Optional[int] = None
+    patient_name: str                     # Required for DB storage
+    patient_phone: str                    # Required for DB storage
+    patient_location: Optional[str] = None
+    facility_id: int                      # Required to know which facility
 
 
 class StartResponse(BaseModel):
@@ -80,6 +105,20 @@ def _greeting(language: Optional[str]) -> str:
     return "Welcome / Murakaza neza. Please speak to begin. / Vuga kugirango utangire."
 
 
+def _save_audio_file(session_id: str, audio_bytes: bytes, sequence: int, speaker: str) -> str:
+    """Save audio file to disk and return file path"""
+    session_dir = AUDIO_DIR / session_id
+    session_dir.mkdir(exist_ok=True)
+    
+    filename = f"{sequence:03d}_{speaker}.wav"
+    file_path = session_dir / filename
+    
+    with open(file_path, 'wb') as f:
+        f.write(audio_bytes)
+    
+    return str(file_path)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -89,22 +128,44 @@ def kiosk_start(body: StartRequest):
     """
     Start a new patient session.
     language is the patient's screen selection — optional, used as a hint only.
+    Creates patient record and session record in database.
     """
     print("\n" + "="*80)
     print("🚀 NEW SESSION STARTED")
     print(f"Language selected: {body.language}")
+    print(f"Patient: {body.patient_name}, Phone: {body.patient_phone}")
     print(f"Patient Age: {body.patient_age}")
+    print(f"Facility ID: {body.facility_id}")
     
     # Normalize language to lowercase for consistency
     normalized_language = body.language.lower() if body.language else "unknown"
     
+    # Create or get patient in database
+    patient = PatientDB.create_patient(
+        full_name=body.patient_name,
+        phone_number=body.patient_phone,
+        preferred_language=normalized_language if normalized_language != "unknown" else "kinyarwanda",
+        location=body.patient_location
+    )
+    print(f"Patient DB ID: {patient['patient_id']}")
+    
+    # Create session in database
+    db_session = SessionDB.create_session(patient['patient_id'])
+    print(f"Session DB ID: {db_session['session_id']}")
+    
+    # Create in-memory session (for fast conversation)
     session = create_session(
         language    = normalized_language,
         patient_age = body.patient_age,
     )
+    # Store DB IDs in memory session for later
+    session.db_session_id = db_session['session_id']
+    session.db_patient_id = patient['patient_id']
+    session.facility_id = body.facility_id
+    
     greeting = _greeting(normalized_language)
     
-    print(f"Session ID: {session.id}")
+    print(f"In-Memory Session ID: {session.id}")
     print(f"💬 Greeting: '{greeting}'")
     print("="*80 + "\n")
     
@@ -126,6 +187,8 @@ async def kiosk_audio(
 
     language (form field): the patient's screen selection, passed as a hint to
     Model A. Detection always runs regardless of this value.
+    
+    Audio is saved to disk but not yet persisted to database (happens on finish).
     """
     print("\n" + "="*80)
     print("🎤 INITIAL AUDIO RECEIVED")
@@ -139,6 +202,11 @@ async def kiosk_audio(
 
     audio_bytes = await audio.read()
     print(f"Audio size: {len(audio_bytes)} bytes")
+    
+    # Save audio file to disk
+    audio_path = _save_audio_file(session_id, audio_bytes, 0, "patient")
+    session.audio_files = [(0, "patient", audio_path, len(audio_bytes))]
+    print(f"Audio saved to: {audio_path}")
 
     # Use session language as hint if not passed directly in the form
     # Normalize language to lowercase for consistency
@@ -205,6 +273,8 @@ async def kiosk_answer(
     detected language, then returns the next question or signals done.
 
     When coverage_complete is True, call POST /kiosk/{id}/finish next.
+    
+    Audio saved to disk but not persisted to database yet.
     """
     print("\n" + "="*80)
     print("🎤 ANSWER AUDIO RECEIVED")
@@ -219,6 +289,14 @@ async def kiosk_answer(
 
     audio_bytes = await audio.read()
     print(f"Audio size: {len(audio_bytes)} bytes")
+    
+    # Save audio file to disk
+    if not hasattr(session, 'audio_files'):
+        session.audio_files = []
+    sequence = len(session.audio_files)
+    audio_path = _save_audio_file(session_id, audio_bytes, sequence, "patient")
+    session.audio_files.append((sequence, "patient", audio_path, len(audio_bytes)))
+    print(f"Audio saved to: {audio_path}")
 
     # For answers, use the already-detected session language as the hint
     print(f"\n🔄 Running Model A (Transcribing answer in {session.language})...")
@@ -267,20 +345,37 @@ async def kiosk_finish(session_id: str):
     """
     Finalise the session. Runs Models D, E, F and returns
     the patient message and routing decision.
+    
+    Persists all session data to database:
+    - Audio file references
+    - Conversation messages
+    - Extracted symptoms
+    - Risk prediction
+    - Complete session data
+    - Creates queue entry
     """
+    print("\n" + "="*80)
+    print("🏁 FINISHING SESSION")
+    print(f"Session ID: {session_id}")
+    
     session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
     if session.stage != SessionStage.SCORING:
         raise HTTPException(status_code=409, detail="Session is not ready to finish.")
 
+    print("\n🔄 Running Model D (Risk Scoring)...")
     session.score = await asyncio.to_thread(model_d.score, session.extraction, age=session.patient_age)
+    print(f"✅ Score: {session.score}")
 
+    print("\n🔄 Assigning routing...")
     routing = assign_routing(
         priority        = session.score["priority"],
         suspected_issue = session.score["suspected_issue"],
     )
+    print(f"✅ Routing: {routing.department}, Queue: {routing.queue}")
 
+    print("\n🔄 Running Model E (Patient Message)...")
     session.patient_message = await asyncio.to_thread(
         model_e.generate_message,
         extraction     = session.extraction,
@@ -289,7 +384,9 @@ async def kiosk_finish(session_id: str):
         location       = routing.location_hint,
         low_confidence = session.score.get("confidence", 1.0) < 0.4,
     )
+    print(f"✅ Patient message generated")
 
+    print("\n🔄 Running Model F (Doctor Brief)...")
     session.doctor_brief = await asyncio.to_thread(
         model_f.generate_brief,
         session_id      = session.id,
@@ -301,15 +398,125 @@ async def kiosk_finish(session_id: str):
         language        = session.language,
         patient_age     = session.patient_age,
     )
+    print(f"✅ Doctor brief generated")
+    
     session.location = routing.location_hint
     session.stage    = SessionStage.COMPLETE
+
+    # ========================================================================
+    # PERSIST TO DATABASE
+    # ========================================================================
+    print("\n💾 PERSISTING TO DATABASE...")
+    
+    try:
+        # 1. Save audio file references
+        if hasattr(session, 'audio_files'):
+            for seq, speaker, path, size in session.audio_files:
+                AudioDB.save_audio_reference(
+                    session_id=session.db_session_id,
+                    sequence_number=seq,
+                    speaker_type=speaker,
+                    file_path=path,
+                    file_size_bytes=size
+                )
+            print(f"✅ Saved {len(session.audio_files)} audio references")
+        
+        # 2. Save conversation messages
+        seq_num = 1
+        # Initial patient complaint
+        ConversationDB.add_message(
+            session_id=session.db_session_id,
+            sender_type='patient',
+            message_text=session.transcript,
+            sequence_number=seq_num
+        )
+        seq_num += 1
+        
+        # Q&A turns
+        for turn in session.turns:
+            ConversationDB.add_message(
+                session_id=session.db_session_id,
+                sender_type='ml_system',
+                message_text=turn.question,
+                sequence_number=seq_num
+            )
+            seq_num += 1
+            ConversationDB.add_message(
+                session_id=session.db_session_id,
+                sender_type='patient',
+                message_text=turn.answer,
+                sequence_number=seq_num
+            )
+            seq_num += 1
+        print(f"✅ Saved {seq_num - 1} conversation messages")
+        
+        # 3. Save symptoms
+        if session.extraction.get('symptoms'):
+            for symptom in session.extraction['symptoms']:
+                if isinstance(symptom, dict):
+                    SymptomDB.add_symptom(
+                        session_id=session.db_session_id,
+                        symptom_name=symptom.get('name', 'unknown'),
+                        severity=symptom.get('severity'),
+                        duration=symptom.get('duration'),
+                        additional_info=symptom.get('description')
+                    )
+                else:
+                    # Simple string symptom
+                    SymptomDB.add_symptom(
+                        session_id=session.db_session_id,
+                        symptom_name=str(symptom)
+                    )
+            print(f"✅ Saved {len(session.extraction['symptoms'])} symptoms")
+        
+        # 4. Save prediction/risk score
+        PredictionDB.create_prediction(
+            session_id=session.db_session_id,
+            predicted_condition=session.score.get('suspected_issue', 'Unknown'),
+            risk_level=session.score.get('priority', 'medium'),
+            confidence_score=session.score.get('confidence', 0.5),
+            model_version='1.0'
+        )
+        print(f"✅ Saved prediction")
+        
+        # 5. Save complete session data
+        ExtendedSessionDB.save_complete_session(
+            session_id=session.db_session_id,
+            extraction_data=session.extraction,
+            score_data=session.score,
+            patient_message=session.patient_message,
+            doctor_brief=session.doctor_brief,
+            full_transcript=session.transcript,
+            transcript_confidence=session.transcript_conf,
+            detected_language=session.language
+        )
+        print(f"✅ Saved complete session data")
+        
+        # 6. Create queue entry
+        queue_entry = QueueDB.create_queue_entry(
+            session_id=session.db_session_id,
+            patient_id=session.db_patient_id,
+            facility_id=session.facility_id
+        )
+        print(f"✅ Created queue entry #{queue_entry['queue_number']}")
+        
+        print("💾 DATABASE PERSISTENCE COMPLETE")
+        
+    except Exception as e:
+        print(f"❌ Database persistence error: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't fail the request - data is in memory, can be retried
+        # In production, you'd want better error handling here
+    
+    print("="*80 + "\n")
 
     return FinishResponse(
         session_id      = session.id,
         patient_message = session.patient_message,
         department      = routing.department,
         queue           = routing.queue,
-        queue_number    = routing.queue_number,
+        queue_number    = queue_entry.get('queue_number', 0),
         location_hint   = routing.location_hint,
         urgency_label   = routing.urgency_label,
     )

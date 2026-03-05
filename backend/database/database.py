@@ -249,3 +249,294 @@ class HealthcareWorkerDB:
     def get_worker_activity(worker_id: int) -> Optional[Dict]:
         query = "SELECT * FROM v_worker_activity WHERE worker_id = %s"
         return DatabaseConnection.execute_query(query, (worker_id,), fetch_one=True)
+    
+    @staticmethod
+    def get_workers_by_facility(facility_id: int) -> List[Dict]:
+        query = "SELECT * FROM healthcare_worker WHERE facility_id = %s AND is_active = TRUE"
+        return DatabaseConnection.execute_query(query, (facility_id,))
+    
+    @staticmethod
+    def create_worker(full_name: str, role: str, facility_id: int, user_id: Optional[int] = None,
+                     specialization: Optional[str] = None, contact_info: Optional[str] = None) -> Dict:
+        query = """
+            INSERT INTO healthcare_worker (full_name, role, facility_id, user_id, specialization, contact_info)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING *
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (full_name, role, facility_id, user_id, specialization, contact_info))
+                return dict(cur.fetchone())
+    
+    @staticmethod
+    def update_worker(worker_id: int, **kwargs) -> int:
+        allowed_fields = {'full_name', 'role', 'specialization', 'contact_info', 'is_active'}
+        updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        if not updates:
+            return 0
+        
+        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+        query = f"UPDATE healthcare_worker SET {set_clause} WHERE worker_id = %s"
+        return DatabaseConnection.execute_update(query, (*updates.values(), worker_id))
+    
+    @staticmethod
+    def deactivate_worker(worker_id: int) -> int:
+        query = "UPDATE healthcare_worker SET is_active = FALSE WHERE worker_id = %s"
+        return DatabaseConnection.execute_update(query, (worker_id,))
+
+
+class UserDB:
+    @staticmethod
+    def create_user(email: str, password_hash: str, full_name: str, role: str,
+                   facility_id: Optional[int] = None) -> Dict:
+        query = """
+            INSERT INTO users (email, password_hash, full_name, role, facility_id)
+            VALUES (%s, %s, %s, %s, %s) RETURNING user_id, email, full_name, role, facility_id, is_active, created_at
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (email, password_hash, full_name, role, facility_id))
+                return dict(cur.fetchone())
+    
+    @staticmethod
+    def get_user_by_email(email: str) -> Optional[Dict]:
+        query = "SELECT * FROM users WHERE email = %s"
+        return DatabaseConnection.execute_query(query, (email,), fetch_one=True)
+    
+    @staticmethod
+    def get_user_by_id(user_id: int) -> Optional[Dict]:
+        query = "SELECT * FROM users WHERE user_id = %s"
+        return DatabaseConnection.execute_query(query, (user_id,), fetch_one=True)
+    
+    @staticmethod
+    def update_user(user_id: int, **kwargs) -> int:
+        allowed_fields = {'email', 'password_hash', 'full_name', 'is_active', 'facility_id'}
+        updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        if not updates:
+            return 0
+        
+        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+        query = f"UPDATE users SET {set_clause} WHERE user_id = %s"
+        return DatabaseConnection.execute_update(query, (*updates.values(), user_id))
+    
+    @staticmethod
+    def get_users_by_facility(facility_id: int) -> List[Dict]:
+        query = "SELECT user_id, email, full_name, role, is_active, created_at FROM users WHERE facility_id = %s"
+        return DatabaseConnection.execute_query(query, (facility_id,))
+
+
+class FacilityDB:
+    @staticmethod
+    def create_facility(name: str, primary_email: str, primary_phone: str,
+                       location: str, admin_user_id: Optional[int] = None) -> Dict:
+        query = """
+            INSERT INTO facility (name, primary_email, primary_phone, location, admin_user_id)
+            VALUES (%s, %s, %s, %s, %s) RETURNING *
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (name, primary_email, primary_phone, location, admin_user_id))
+                return dict(cur.fetchone())
+    
+    @staticmethod
+    def get_facility(facility_id: int) -> Optional[Dict]:
+        query = "SELECT * FROM facility WHERE facility_id = %s"
+        return DatabaseConnection.execute_query(query, (facility_id,), fetch_one=True)
+    
+    @staticmethod
+    def get_all_facilities() -> List[Dict]:
+        query = "SELECT * FROM v_facility_stats ORDER BY name"
+        return DatabaseConnection.execute_query(query)
+    
+    @staticmethod
+    def update_facility(facility_id: int, **kwargs) -> int:
+        allowed_fields = {'name', 'primary_email', 'primary_phone', 'location', 'admin_user_id', 'is_active'}
+        updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        if not updates:
+            return 0
+        
+        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+        query = f"UPDATE facility SET {set_clause} WHERE facility_id = %s"
+        return DatabaseConnection.execute_update(query, (*updates.values(), facility_id))
+    
+    @staticmethod
+    def delete_facility(facility_id: int) -> int:
+        query = "DELETE FROM facility WHERE facility_id = %s"
+        return DatabaseConnection.execute_update(query, (facility_id,))
+
+
+class RoomDB:
+    @staticmethod
+    def create_room(facility_id: int, room_name: str, room_type: str,
+                   floor_number: Optional[int] = None, capacity: int = 1) -> Dict:
+        query = """
+            INSERT INTO room (facility_id, room_name, room_type, floor_number, capacity)
+            VALUES (%s, %s, %s, %s, %s) RETURNING *
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (facility_id, room_name, room_type, floor_number, capacity))
+                return dict(cur.fetchone())
+    
+    @staticmethod
+    def get_room(room_id: int) -> Optional[Dict]:
+        query = "SELECT * FROM room WHERE room_id = %s"
+        return DatabaseConnection.execute_query(query, (room_id,), fetch_one=True)
+    
+    @staticmethod
+    def get_rooms_by_facility(facility_id: int) -> List[Dict]:
+        query = "SELECT * FROM room WHERE facility_id = %s ORDER BY room_name"
+        return DatabaseConnection.execute_query(query, (facility_id,))
+    
+    @staticmethod
+    def get_active_rooms(facility_id: int) -> List[Dict]:
+        query = "SELECT * FROM room WHERE facility_id = %s AND status = 'active' ORDER BY room_name"
+        return DatabaseConnection.execute_query(query, (facility_id,))
+    
+    @staticmethod
+    def update_room(room_id: int, **kwargs) -> int:
+        allowed_fields = {'room_name', 'room_type', 'status', 'floor_number', 'capacity'}
+        updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        if not updates:
+            return 0
+        
+        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+        query = f"UPDATE room SET {set_clause} WHERE room_id = %s"
+        return DatabaseConnection.execute_update(query, (*updates.values(), room_id))
+    
+    @staticmethod
+    def delete_room(room_id: int) -> int:
+        query = "DELETE FROM room WHERE room_id = %s"
+        return DatabaseConnection.execute_update(query, (room_id,))
+
+
+class QueueDB:
+    @staticmethod
+    def create_queue_entry(session_id: int, patient_id: int, facility_id: int,
+                          required_exams: Optional[List[str]] = None) -> Dict:
+        # Get next queue number for this facility
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT COALESCE(MAX(queue_number), 0) + 1 
+                    FROM examination_queue 
+                    WHERE facility_id = %s AND DATE(created_at) = CURRENT_DATE
+                """, (facility_id,))
+                queue_number = cur.fetchone()['coalesce']
+                
+                query = """
+                    INSERT INTO examination_queue (session_id, patient_id, facility_id, queue_number, required_exams)
+                    VALUES (%s, %s, %s, %s, %s) RETURNING *
+                """
+                cur.execute(query, (session_id, patient_id, facility_id, queue_number, required_exams))
+                return dict(cur.fetchone())
+    
+    @staticmethod
+    def get_queue_entry(queue_id: int) -> Optional[Dict]:
+        query = "SELECT * FROM v_queue_overview WHERE queue_id = %s"
+        return DatabaseConnection.execute_query(query, (queue_id,), fetch_one=True)
+    
+    @staticmethod
+    def get_queue_by_session(session_id: int) -> Optional[Dict]:
+        query = "SELECT * FROM examination_queue WHERE session_id = %s"
+        return DatabaseConnection.execute_query(query, (session_id,), fetch_one=True)
+    
+    @staticmethod
+    def get_facility_queue(facility_id: int, status: Optional[str] = None) -> List[Dict]:
+        if status:
+            query = "SELECT * FROM v_queue_overview WHERE facility_name = (SELECT name FROM facility WHERE facility_id = %s) AND queue_status = %s"
+            return DatabaseConnection.execute_query(query, (facility_id, status))
+        else:
+            query = "SELECT * FROM v_queue_overview WHERE facility_name = (SELECT name FROM facility WHERE facility_id = %s)"
+            return DatabaseConnection.execute_query(query, (facility_id,))
+    
+    @staticmethod
+    def assign_to_doctor(queue_id: int, doctor_id: int, room_id: Optional[int] = None,
+                        exams: Optional[List[str]] = None, notes: Optional[str] = None) -> int:
+        updates = {'assigned_doctor_id': doctor_id}
+        if room_id:
+            updates['assigned_room_id'] = room_id
+        if exams:
+            updates['required_exams'] = exams
+        if notes:
+            updates['notes'] = notes
+        
+        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+        query = f"UPDATE examination_queue SET {set_clause}, queue_status = 'in_progress', started_at = CURRENT_TIMESTAMP WHERE queue_id = %s"
+        return DatabaseConnection.execute_update(query, (*updates.values(), queue_id))
+    
+    @staticmethod
+    def update_queue_status(queue_id: int, status: str) -> int:
+        extra = ", completed_at = CURRENT_TIMESTAMP" if status == 'completed' else ""
+        query = f"UPDATE examination_queue SET queue_status = %s{extra} WHERE queue_id = %s"
+        return DatabaseConnection.execute_update(query, (status, queue_id))
+    
+    @staticmethod
+    def get_doctor_queue(doctor_id: int) -> List[Dict]:
+        query = """
+            SELECT * FROM v_queue_overview 
+            WHERE assigned_doctor_id = (SELECT worker_id FROM healthcare_worker WHERE worker_id = %s)
+            ORDER BY queue_number
+        """
+        return DatabaseConnection.execute_query(query, (doctor_id,))
+
+
+class AudioDB:
+    @staticmethod
+    def save_audio_reference(session_id: int, sequence_number: int, speaker_type: str,
+                            file_path: str, file_size_bytes: Optional[int] = None,
+                            duration_seconds: Optional[float] = None) -> Dict:
+        query = """
+            INSERT INTO audio_recording (session_id, sequence_number, speaker_type, file_path, file_size_bytes, duration_seconds)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING *
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (session_id, sequence_number, speaker_type, file_path, file_size_bytes, duration_seconds))
+                return dict(cur.fetchone())
+    
+    @staticmethod
+    def get_session_audio(session_id: int) -> List[Dict]:
+        query = "SELECT * FROM audio_recording WHERE session_id = %s ORDER BY sequence_number"
+        return DatabaseConnection.execute_query(query, (session_id,))
+
+
+class ExtendedSessionDB:
+    """Extended session operations with new JSONB fields"""
+    
+    @staticmethod
+    def save_complete_session(session_id: int, extraction_data: Dict, score_data: Dict,
+                             patient_message: str, doctor_brief: Dict, full_transcript: str,
+                             transcript_confidence: float, detected_language: str) -> int:
+        query = """
+            UPDATE session SET 
+                extraction_data = %s,
+                score_data = %s,
+                patient_message = %s,
+                doctor_brief = %s,
+                full_transcript = %s,
+                transcript_confidence = %s,
+                detected_language = %s,
+                status = 'completed',
+                end_time = CURRENT_TIMESTAMP
+            WHERE session_id = %s
+        """
+        return DatabaseConnection.execute_update(query, (
+            json.dumps(extraction_data),
+            json.dumps(score_data),
+            patient_message,
+            json.dumps(doctor_brief),
+            full_transcript,
+            transcript_confidence,
+            detected_language,
+            session_id
+        ))
+    
+    @staticmethod
+    def get_patient_sessions(patient_id: int) -> List[Dict]:
+        query = "SELECT * FROM v_patient_list WHERE patient_id = %s ORDER BY start_time DESC"
+        return DatabaseConnection.execute_query(query, (patient_id,))
+    
+    @staticmethod
+    def get_all_patients() -> List[Dict]:
+        query = "SELECT DISTINCT ON (patient_id) * FROM v_patient_list ORDER BY patient_id, start_time DESC"
+        return DatabaseConnection.execute_query(query)
