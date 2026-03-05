@@ -226,6 +226,10 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
 
     pipe       = _kin_pipe if resolved == "kinyarwanda" else _eng_pipe
     lang_token = _LANG_TO_WHISPER.get(resolved, "rw")
+    
+    # Kinyarwanda model is specialized - don't pass language parameter
+    # English model supports multiple languages - pass language parameter
+    is_kinyarwanda = (resolved == "kinyarwanda")
 
     # Process audio in 30-second segments
     seg_len  = 30 * SR
@@ -245,11 +249,19 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
             # Ensure float32 dtype and C-contiguous for compatibility
             chunk_array = np.ascontiguousarray(chunk, dtype=np.float32)
             
+            # Build generate_kwargs based on model type
+            if is_kinyarwanda:
+                # Kinyarwanda model is specialized - no language parameter needed
+                generate_kwargs = {"task": "transcribe"}
+            else:
+                # English model supports multiple languages
+                generate_kwargs = {"task": "transcribe", "language": lang_token}
+            
             # Try with timestamps first for confidence calculation
             try:
                 result = pipe(
                     chunk_array,
-                    generate_kwargs={"task": "transcribe", "language": lang_token},
+                    generate_kwargs=generate_kwargs,
                     return_timestamps=True,
                 )
                 chunks = result.get("chunks", [])
@@ -262,7 +274,7 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
                     print(f"⚠️ Retrying without timestamps... ", end="", flush=True)
                     result = pipe(
                         chunk_array,
-                        generate_kwargs={"task": "transcribe", "language": lang_token},
+                        generate_kwargs=generate_kwargs,
                         return_timestamps=False,
                     )
                     text = result.get("text", "").strip()
