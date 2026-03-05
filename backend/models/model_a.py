@@ -54,7 +54,6 @@ def load_models():
             model="akera/whisper-large-v3-kin-200h-v2",
             torch_dtype=DTYPE,
             device=DEVICE,
-            return_timestamps=True,
             token=HF_TOKEN,
         )
 
@@ -64,7 +63,6 @@ def load_models():
             model="openai/whisper-large-v3",
             torch_dtype=DTYPE,
             device=DEVICE,
-            return_timestamps=True,
             token=HF_TOKEN,
         )
 
