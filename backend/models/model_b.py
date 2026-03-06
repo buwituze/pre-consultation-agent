@@ -106,7 +106,13 @@ Extract the information and return ONLY the populated JSON matching the schema a
             'response_mime_type': 'application/json'
         }
     )
-    return _validate(_parse(response.text))
+    
+    # Debug: print full response to see what we're getting
+    raw_text = response.text
+    print(f"DEBUG - Full response length: {len(raw_text)}")
+    print(f"DEBUG - Full response:\n{raw_text}\n")
+    
+    return _validate(_parse(raw_text))
 
 # Alias for backward compatibility
 extract_info = extract
