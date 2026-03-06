@@ -85,13 +85,10 @@ Understood. One question only.
 
 {prompt}"""
     
-    model = genai.GenerativeModel(
-        model_name='models/gemini-flash-latest',
-        system_instruction=_SYSTEM
-    )
+    model = genai.GenerativeModel('models/gemini-flash-latest')
     response = model.generate_content(
         full_prompt,
-        generation_config={'temperature': 0.2, 'max_output_tokens': 80}
+        generation_config={'temperature': 0.2, 'max_output_tokens': 100, 'top_p': 0.95}
     )
     question = re.sub(r"^(question|q)[:\-]?\s*", "", response.text.strip(), flags=re.IGNORECASE)
     if question and not question.endswith("?"):

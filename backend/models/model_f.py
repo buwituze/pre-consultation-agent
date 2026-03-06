@@ -84,15 +84,13 @@ Understood. JSON brief only, no diagnosis.
 {prompt}"""
 
     try:
-        model = genai.GenerativeModel(
-            model_name='models/gemini-flash-latest',
-            system_instruction=_SYSTEM
-        )
+        model = genai.GenerativeModel('models/gemini-flash-latest')
         response = model.generate_content(
             full_prompt,
             generation_config={
                 'temperature': 0.1,
-                'max_output_tokens': 512
+                'max_output_tokens': 600,
+                'top_p': 0.95
             }
         )
         gemini_out = _parse(response.text)

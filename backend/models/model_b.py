@@ -85,39 +85,40 @@ def extract(transcript: str) -> dict:
     if len(transcript.strip()) < 10:
         return dict(EMPTY_SCHEMA)
 
-    # Create the prompt with schema example
-    full_prompt = f"""Schema:
+    # Create comprehensive prompt without system_instruction to avoid token issues
+    full_prompt = f"""You are a clinical information extraction assistant.
+Extract observable facts from the patient transcript and populate the JSON schema.
+
+Rules:
+- Output valid JSON only. No markdown, no extra text.
+- Leave fields empty if information is missing. Never guess.
+- No diagnosis, no medical advice, no new fields.
+- red_flags_present: true if breathing difficulty, chest pain, loss of consciousness,
+  heavy bleeding, seizure, or sudden paralysis is mentioned. Otherwise false or null.
+- The transcript may be in English, Kinyarwanda, or both.
+
+JSON Schema:
 {json.dumps(EMPTY_SCHEMA, indent=2)}
 
-Transcript:
+Patient Transcript:
 {transcript.strip()}
 
-Extract the information and return ONLY the populated JSON matching the schema above."""
+Return ONLY the populated JSON matching the schema above, nothing else."""
 
-    model = genai.GenerativeModel(
-        model_name='models/gemini-flash-latest',
-        system_instruction=_SYSTEM
-    )
+    model = genai.GenerativeModel('models/gemini-flash-latest')
     response = model.generate_content(
         full_prompt,
         generation_config={
             'temperature': 0.0,
-            'max_output_tokens': 512
+            'max_output_tokens': 512,
+            'top_p': 0.95
         }
     )
     
-    # Debug: check response metadata
-    print(f"DEBUG - Response parts: {len(response.parts) if hasattr(response, 'parts') else 'N/A'}")
-    print(f"DEBUG - Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
-    print(f"DEBUG - Safety ratings: {response.candidates[0].safety_ratings if response.candidates else 'N/A'}")
-    print(f"DEBUG - Response text length: {len(response.text)}")
-    print(f"DEBUG - Full text:\n{response.text}\n---")
-    
-    # Check if response was blocked
-    if not response.text:
-        if hasattr(response, 'prompt_feedback'):
-            raise RuntimeError(f"Response blocked: {response.prompt_feedback}")
-        raise RuntimeError("Empty response from model")
+    # Check if response was blocked or truncated
+    if not response.text or len(response.text) < 20:
+        finish_reason = response.candidates[0].finish_reason if response.candidates else None
+        raise RuntimeError(f"Incomplete response. Finish reason: {finish_reason}, Text: {response.text}")
     
     return _validate(_parse(response.text))
 
