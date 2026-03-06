@@ -85,7 +85,7 @@ Transcript:
 
 Return the populated JSON schema only."""
 
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     response = model.generate_content(
         full_prompt,
         generation_config={'temperature': 0.0, 'max_output_tokens': 512}
