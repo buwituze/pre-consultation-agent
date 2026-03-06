@@ -4,7 +4,7 @@ models/model_b.py — Clinical information extraction wrapper.
 
 import os, json, re
 from typing import Optional
-import google.genai as genai
+import google.generativeai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 

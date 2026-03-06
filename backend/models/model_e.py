@@ -4,7 +4,7 @@ models/model_e.py — Patient-facing guidance message generator.
 
 import os
 from typing import Optional
-import google.genai as genai
+import google.generativeai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 

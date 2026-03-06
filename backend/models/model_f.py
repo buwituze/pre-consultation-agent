@@ -4,7 +4,7 @@ models/model_f.py — Doctor summary generator wrapper.
 
 import os, json, re, datetime
 from typing import Optional
-import google.genai as genai
+import google.generativeai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 

@@ -3,7 +3,7 @@ models/model_c.py — Next-question selection wrapper.
 """
 
 import os, re
-import google.genai as genai
+import google.generativeai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
