@@ -102,17 +102,17 @@ Extract the information and return ONLY the populated JSON matching the schema a
         full_prompt,
         generation_config={
             'temperature': 0.0,
-            'max_output_tokens': 512,
-            'response_mime_type': 'application/json'
+            'max_output_tokens': 512
         }
     )
     
-    # Debug: print full response to see what we're getting
-    raw_text = response.text
-    print(f"DEBUG - Full response length: {len(raw_text)}")
-    print(f"DEBUG - Full response:\n{raw_text}\n")
+    # Check if response was blocked
+    if not response.text:
+        if hasattr(response, 'prompt_feedback'):
+            raise RuntimeError(f"Response blocked: {response.prompt_feedback}")
+        raise RuntimeError("Empty response from model")
     
-    return _validate(_parse(raw_text))
+    return _validate(_parse(response.text))
 
 # Alias for backward compatibility
 extract_info = extract

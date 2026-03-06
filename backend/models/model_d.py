@@ -136,8 +136,7 @@ Understood. JSON risk score only.
             full_prompt,
             generation_config={
                 'temperature': 0.0,
-                'max_output_tokens': 256,
-                'response_mime_type': 'application/json'
+                'max_output_tokens': 256
             }
         )
         return _parse(response.text)

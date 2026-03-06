@@ -92,8 +92,7 @@ Understood. JSON brief only, no diagnosis.
             full_prompt,
             generation_config={
                 'temperature': 0.1,
-                'max_output_tokens': 512,
-                'response_mime_type': 'application/json'
+                'max_output_tokens': 512
             }
         )
         gemini_out = _parse(response.text)
