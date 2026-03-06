@@ -86,7 +86,7 @@ Understood. One question only.
 {prompt}"""
     
     response = _client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-1.5-flash-002',
         contents=full_prompt,
         config={'temperature': 0.2, 'max_output_tokens': 80}
     )
