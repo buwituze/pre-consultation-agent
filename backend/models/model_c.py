@@ -3,14 +3,12 @@ models/model_c.py — Next-question selection wrapper.
 """
 
 import os, re
-import google.generativeai as genai
+import google.genai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 _model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
-    generation_config=genai.types.GenerationConfig(temperature=0.2, max_output_tokens=80),
-    safety_settings=[{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}],
 )
 
 COVERAGE_CHECKLIST = [
@@ -85,11 +83,16 @@ Coverage checklist (must be addressed eventually):
 
 Output the single best next question."""
 
-    chat = _model.start_chat(history=[
-        {"role": "user",  "parts": [_SYSTEM]},
-        {"role": "model", "parts": ["Understood. One question only."]},
-    ])
-    response = chat.send_message(prompt)
+    full_prompt = f"""{_SYSTEM}
+
+Understood. One question only.
+
+{prompt}"""
+    
+    response = _model.generate_content(
+        full_prompt,
+        generation_config={"temperature": 0.2, "max_output_tokens": 80}
+    )
     question = re.sub(r"^(question|q)[:\-]?\s*", "", response.text.strip(), flags=re.IGNORECASE)
     if question and not question.endswith("?"):
         question += "?"

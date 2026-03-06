@@ -4,14 +4,12 @@ models/model_d.py — Risk and priority scoring wrapper.
 
 import os, json, re
 from typing import Optional
-import google.generativeai as genai
+import google.genai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 _model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
-    generation_config=genai.types.GenerationConfig(temperature=0.0, max_output_tokens=256),
-    safety_settings=[{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}],
 )
 
 PRIORITY_LEVELS = ["HIGH", "MEDIUM", "LOW"]
@@ -118,12 +116,17 @@ Schema:\n{json.dumps(schema, indent=2)}
 
 Return the populated JSON only."""
 
-    chat = _model.start_chat(history=[
-        {"role": "user",  "parts": [_SYSTEM]},
-        {"role": "model", "parts": ["Understood. JSON risk score only."]},
-    ])
+    full_prompt = f"""{_SYSTEM}
+
+Understood. JSON risk score only.
+
+{prompt}"""
+    
     try:
-        response = chat.send_message(prompt)
+        response = _model.generate_content(
+            full_prompt,
+            generation_config={"temperature": 0.0, "max_output_tokens": 256}
+        )
         return _parse(response.text)
     except Exception:
         return {"priority": "MEDIUM", "suspected_issue": "unclear or unclassifiable complaint",

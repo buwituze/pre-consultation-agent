@@ -4,14 +4,12 @@ models/model_f.py — Doctor summary generator wrapper.
 
 import os, json, re, datetime
 from typing import Optional
-import google.generativeai as genai
+import google.genai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 _model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
-    generation_config=genai.types.GenerationConfig(temperature=0.1, max_output_tokens=512),
-    safety_settings=[{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}],
 )
 
 _SYSTEM = """You are a clinical documentation assistant. Write a patient brief for a doctor.
@@ -74,13 +72,17 @@ Schema:
 
 Return the populated JSON only."""
 
-    chat = _model.start_chat(history=[
-        {"role": "user",  "parts": [_SYSTEM]},
-        {"role": "model", "parts": ["Understood. JSON brief only, no diagnosis."]},
-    ])
+    full_prompt = f"""{_SYSTEM}
+
+Understood. JSON brief only, no diagnosis.
+
+{prompt}"""
 
     try:
-        response   = chat.send_message(prompt)
+        response = _model.generate_content(
+            full_prompt,
+            generation_config={"temperature": 0.1, "max_output_tokens": 512}
+        )
         gemini_out = _parse(response.text)
     except Exception:
         gemini_out = {

@@ -4,14 +4,12 @@ models/model_b.py — Clinical information extraction wrapper.
 
 import os, json, re
 from typing import Optional
-import google.generativeai as genai
+import google.genai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 _model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
-    generation_config=genai.types.GenerationConfig(temperature=0.0, max_output_tokens=512),
-    safety_settings=[{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}],
 )
 
 EMPTY_SCHEMA = {
@@ -83,11 +81,16 @@ def extract(transcript: str) -> dict:
     if len(transcript.strip()) < 10:
         return dict(EMPTY_SCHEMA)
 
-    chat = _model.start_chat(history=[
-        {"role": "user",  "parts": [_SYSTEM]},
-        {"role": "model", "parts": ["Understood. JSON only, no diagnosis."]},
-    ])
-    response = chat.send_message(
-        f"Transcript:\n{transcript.strip()}\n\nReturn the populated JSON schema only."
+    # Create the prompt with system instructions
+    full_prompt = f"""{_SYSTEM}
+
+Transcript:
+{transcript.strip()}
+
+Return the populated JSON schema only."""
+
+    response = _model.generate_content(
+        full_prompt,
+        generation_config={"temperature": 0.0, "max_output_tokens": 512}
     )
     return _validate(_parse(response.text))

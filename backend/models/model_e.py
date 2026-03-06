@@ -4,14 +4,12 @@ models/model_e.py — Patient-facing guidance message generator.
 
 import os
 from typing import Optional
-import google.generativeai as genai
+import google.genai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 _model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
-    generation_config=genai.types.GenerationConfig(temperature=0.3, max_output_tokens=180),
-    safety_settings=[{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}],
 )
 
 _FALLBACK = {
@@ -87,13 +85,25 @@ def generate_message(extraction: dict, score: dict, language: str = "english",
     ])
 
     try:
-        history = [
-            {"role": "user",  "parts": [_SYSTEM]},
-            {"role": "model", "parts": ["Understood. Patient message only, no diagnosis."]},
-        ] + _FEW_SHOT
+        # Construct few-shot examples as part of the prompt
+        few_shot_text = "\n\n".join([
+            f"Example:\n{ex['parts'][0]}" if ex['role'] == 'user' else f"Response: {ex['parts'][0]}"
+            for ex in _FEW_SHOT
+        ])
+        
+        full_prompt = f"""{_SYSTEM}
 
-        chat     = _model.start_chat(history=history)
-        response = chat.send_message(prompt)
+Understood. Patient message only, no diagnosis.
+
+{few_shot_text}
+
+Now generate for:
+{prompt}"""
+        
+        response = _model.generate_content(
+            full_prompt,
+            generation_config={"temperature": 0.3, "max_output_tokens": 180}
+        )
         message  = response.text.strip()
     except Exception:
         return templates.get(priority, templates["UNKNOWN"])
