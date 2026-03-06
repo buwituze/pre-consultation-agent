@@ -97,7 +97,7 @@ Now generate for:
 {prompt}"""
         
         response = _client.models.generate_content(
-            model='gemini-1.5-flash-latest',
+            model='gemini-1.5-flash',
             contents=full_prompt,
             config={'temperature': 0.3, 'max_output_tokens': 180}
         )
