@@ -119,10 +119,17 @@ Understood. JSON risk score only.
 {prompt}"""
     
     try:
-        model = genai.GenerativeModel('models/gemini-flash-latest')
+        model = genai.GenerativeModel(
+            model_name='models/gemini-flash-latest',
+            system_instruction=_SYSTEM
+        )
         response = model.generate_content(
             full_prompt,
-            generation_config={'temperature': 0.0, 'max_output_tokens': 256}
+            generation_config={
+                'temperature': 0.0,
+                'max_output_tokens': 256,
+                'response_mime_type': 'application/json'
+            }
         )
         return _parse(response.text)
     except Exception:

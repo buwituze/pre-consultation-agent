@@ -75,10 +75,17 @@ Understood. JSON brief only, no diagnosis.
 {prompt}"""
 
     try:
-        model = genai.GenerativeModel('models/gemini-flash-latest')
+        model = genai.GenerativeModel(
+            model_name='models/gemini-flash-latest',
+            system_instruction=_SYSTEM
+        )
         response = model.generate_content(
             full_prompt,
-            generation_config={'temperature': 0.1, 'max_output_tokens': 512}
+            generation_config={
+                'temperature': 0.1,
+                'max_output_tokens': 512,
+                'response_mime_type': 'application/json'
+            }
         )
         gemini_out = _parse(response.text)
     except Exception:

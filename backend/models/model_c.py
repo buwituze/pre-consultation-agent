@@ -85,7 +85,10 @@ Understood. One question only.
 
 {prompt}"""
     
-    model = genai.GenerativeModel('models/gemini-flash-latest')
+    model = genai.GenerativeModel(
+        model_name='models/gemini-flash-latest',
+        system_instruction=_SYSTEM
+    )
     response = model.generate_content(
         full_prompt,
         generation_config={'temperature': 0.2, 'max_output_tokens': 80}

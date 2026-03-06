@@ -25,7 +25,7 @@ RED_FLAG_TERMS = [
     "guhumeka", "amaraso", "imitsi", "kunanirwa",
 ]
 
-_SYSTEM = f"""You are a clinical information extraction assistant.
+_SYSTEM = """You are a clinical information extraction assistant.
 Extract observable facts from the patient transcript and populate the JSON schema.
 Rules:
 - Output valid JSON only. No markdown, no extra text.
@@ -33,15 +33,15 @@ Rules:
 - No diagnosis, no medical advice, no new fields.
 - red_flags_present: true if breathing difficulty, chest pain, loss of consciousness,
   heavy bleeding, seizure, or sudden paralysis is mentioned. Otherwise false or null.
-- The transcript may be in English, Kinyarwanda, or both.
-Schema: {json.dumps(EMPTY_SCHEMA)}"""
+- The transcript may be in English, Kinyarwanda, or both."""
 
 
 def _parse(raw: str) -> dict:
     cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`")
     match   = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if not match:
-        raise ValueError("No JSON in response.")
+        print(f"DEBUG - Raw response: {raw[:500]}...")  # Debug output
+        raise ValueError(f"No JSON in response. Got: {raw[:200]}")
     return json.loads(match.group(0))
 
 
@@ -77,18 +77,26 @@ def extract(transcript: str) -> dict:
     if len(transcript.strip()) < 10:
         return dict(EMPTY_SCHEMA)
 
-    # Create the prompt with system instructions
-    full_prompt = f"""{_SYSTEM}
+    # Create the prompt with schema example
+    full_prompt = f"""Schema:
+{json.dumps(EMPTY_SCHEMA, indent=2)}
 
 Transcript:
 {transcript.strip()}
 
-Return the populated JSON schema only."""
+Extract the information and return ONLY the populated JSON matching the schema above."""
 
-    model = genai.GenerativeModel('models/gemini-flash-latest')
+    model = genai.GenerativeModel(
+        model_name='models/gemini-flash-latest',
+        system_instruction=_SYSTEM
+    )
     response = model.generate_content(
         full_prompt,
-        generation_config={'temperature': 0.0, 'max_output_tokens': 512}
+        generation_config={
+            'temperature': 0.0,
+            'max_output_tokens': 512,
+            'response_mime_type': 'application/json'
+        }
     )
     return _validate(_parse(response.text))
 
