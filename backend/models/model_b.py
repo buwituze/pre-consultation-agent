@@ -85,40 +85,50 @@ def extract(transcript: str) -> dict:
     if len(transcript.strip()) < 10:
         return dict(EMPTY_SCHEMA)
 
-    # Create comprehensive prompt without system_instruction to avoid token issues
-    full_prompt = f"""You are a clinical information extraction assistant.
-Extract observable facts from the patient transcript and populate the JSON schema.
+    # Simplified prompt to avoid token exhaustion
+    full_prompt = f"""Extract clinical information from this patient statement and return as JSON.
 
-Rules:
-- Output valid JSON only. No markdown, no extra text.
-- Leave fields empty if information is missing. Never guess.
-- No diagnosis, no medical advice, no new fields.
-- red_flags_present: true if breathing difficulty, chest pain, loss of consciousness,
-  heavy bleeding, seizure, or sudden paralysis is mentioned. Otherwise false or null.
-- The transcript may be in English, Kinyarwanda, or both.
+Required JSON format:
+{{
+  "chief_complaint": "main symptom in patient's words",
+  "duration": "how long",
+  "severity": "mild/moderate/severe",
+  "body_part": "affected area",
+  "associated_symptoms": ["other symptoms"],
+  "red_flags_present": true/false/null,
+  "additional_observations": "other notes"
+}}
 
-JSON Schema:
-{json.dumps(EMPTY_SCHEMA, indent=2)}
+Patient says: {transcript.strip()}
 
-Patient Transcript:
-{transcript.strip()}
-
-Return ONLY the populated JSON matching the schema above, nothing else."""
+Return only the JSON, no other text."""
 
     model = genai.GenerativeModel('models/gemini-flash-latest')
+    
+    # Debug: check prompt length
+    import tiktoken
+    try:
+        enc = tiktoken.get_encoding("cl100k_base")
+        prompt_tokens = len(enc.encode(full_prompt))
+        print(f"DEBUG - Prompt tokens: {prompt_tokens}")
+    except:
+        print(f"DEBUG - Prompt chars: {len(full_prompt)}")
+    
     response = model.generate_content(
         full_prompt,
         generation_config={
             'temperature': 0.0,
-            'max_output_tokens': 512,
+            'max_output_tokens': 1024,
             'top_p': 0.95
         }
     )
     
-    # Check if response was blocked or truncated
+    # Check response
+    print(f"DEBUG - Response length: {len(response.text) if response.text else 0}")
+    print(f"DEBUG - Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
+    
     if not response.text or len(response.text) < 20:
-        finish_reason = response.candidates[0].finish_reason if response.candidates else None
-        raise RuntimeError(f"Incomplete response. Finish reason: {finish_reason}, Text: {response.text}")
+        raise RuntimeError(f"Empty response. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
     
     return _validate(_parse(response.text))
 
