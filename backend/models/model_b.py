@@ -108,14 +108,6 @@ Return only the JSON, no other text."""
     # Debug: check prompt length
     print(f"DEBUG - Prompt length: {len(full_prompt)} chars")
     
-    # Try with safety settings disabled
-    safety_settings = {
-        'HARASSMENT': 'BLOCK_NONE',
-        'HATE_SPEECH': 'BLOCK_NONE',
-        'SEXUALLY_EXPLICIT': 'BLOCK_NONE',
-        'DANGEROUS_CONTENT': 'BLOCK_NONE',
-    }
-    
     response = model.generate_content(
         full_prompt,
         generation_config={
@@ -123,8 +115,7 @@ Return only the JSON, no other text."""
             'max_output_tokens': 2048,
             'top_p': 0.95,
             'top_k': 40
-        },
-        safety_settings=safety_settings
+        }
     )
     
     # Debug output
