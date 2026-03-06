@@ -106,6 +106,13 @@ Extract the information and return ONLY the populated JSON matching the schema a
         }
     )
     
+    # Debug: check response metadata
+    print(f"DEBUG - Response parts: {len(response.parts) if hasattr(response, 'parts') else 'N/A'}")
+    print(f"DEBUG - Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
+    print(f"DEBUG - Safety ratings: {response.candidates[0].safety_ratings if response.candidates else 'N/A'}")
+    print(f"DEBUG - Response text length: {len(response.text)}")
+    print(f"DEBUG - Full text:\n{response.text}\n---")
+    
     # Check if response was blocked
     if not response.text:
         if hasattr(response, 'prompt_feedback'):
