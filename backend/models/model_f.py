@@ -75,7 +75,7 @@ Understood. JSON brief only, no diagnosis.
 {prompt}"""
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('models/gemini-flash-latest')
         response = model.generate_content(
             full_prompt,
             generation_config={'temperature': 0.1, 'max_output_tokens': 512}
