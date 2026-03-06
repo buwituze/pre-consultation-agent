@@ -41,11 +41,20 @@ Rules:
 
 
 def _parse(raw: str) -> dict:
-    cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`")
-    match   = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if not match:
-        raise ValueError("No JSON in response.")
-    d = json.loads(match.group(0))
+    # Since we use response_mime_type='application/json', response is already JSON
+    cleaned = raw.strip()
+    # Remove markdown code blocks if present
+    cleaned = re.sub(r"```(?:json)?\s*", "", cleaned).rstrip("`")
+    
+    try:
+        # Try direct JSON parse first
+        d = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Fallback: try to extract JSON from text
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if not match:
+            raise ValueError(f"No valid JSON in response. Got: {raw[:500]}")
+        d = json.loads(match.group(0))
 
     priority = str(d.get("priority", "MEDIUM")).upper()
     if priority not in PRIORITY_LEVELS:

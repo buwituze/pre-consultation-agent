@@ -37,12 +37,20 @@ Rules:
 
 
 def _parse(raw: str) -> dict:
-    cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`")
-    match   = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if not match:
-        print(f"DEBUG - Raw response: {raw[:500]}...")  # Debug output
-        raise ValueError(f"No JSON in response. Got: {raw[:200]}")
-    return json.loads(match.group(0))
+    # Since we use response_mime_type='application/json', response is already JSON
+    cleaned = raw.strip()
+    # Remove markdown code blocks if present
+    cleaned = re.sub(r"```(?:json)?\s*", "", cleaned).rstrip("`")
+    
+    try:
+        # Try direct JSON parse first
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Fallback: try to extract JSON from text
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if not match:
+            raise ValueError(f"No valid JSON in response. Got: {raw[:500]}")
+        return json.loads(match.group(0))
 
 
 def _validate(raw: dict) -> dict:
