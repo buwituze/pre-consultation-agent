@@ -4,13 +4,9 @@ models/model_b.py — Clinical information extraction wrapper.
 
 import os, json, re
 from typing import Optional
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-)
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 EMPTY_SCHEMA = {
     "chief_complaint":         "",
@@ -89,8 +85,12 @@ Transcript:
 
 Return the populated JSON schema only."""
 
-    response = _model.generate_content(
-        full_prompt,
-        generation_config={"temperature": 0.0, "max_output_tokens": 512}
+    response = _client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents=full_prompt,
+        config={'temperature': 0.0, 'max_output_tokens': 512}
     )
     return _validate(_parse(response.text))
+
+# Alias for backward compatibility
+extract_info = extract

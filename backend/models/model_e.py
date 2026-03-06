@@ -4,13 +4,9 @@ models/model_e.py — Patient-facing guidance message generator.
 
 import os
 from typing import Optional
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-)
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 _FALLBACK = {
     "english": {
@@ -100,9 +96,10 @@ Understood. Patient message only, no diagnosis.
 Now generate for:
 {prompt}"""
         
-        response = _model.generate_content(
-            full_prompt,
-            generation_config={"temperature": 0.3, "max_output_tokens": 180}
+        response = _client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=full_prompt,
+            config={'temperature': 0.3, 'max_output_tokens': 180}
         )
         message  = response.text.strip()
     except Exception:
@@ -114,3 +111,9 @@ Now generate for:
         return templates.get(priority, templates["UNKNOWN"])
 
     return message
+
+# Wrapper for notebook compatibility
+def generate_guidance(extraction: dict, score: dict, language: str = "english", location: str = "") -> dict:
+    """Wrapper that returns dict with 'message' key for notebook compatibility."""
+    message_text = generate_message(extraction, score, language, location)
+    return {"message": message_text}

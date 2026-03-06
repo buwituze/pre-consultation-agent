@@ -4,13 +4,9 @@ models/model_d.py — Risk and priority scoring wrapper.
 
 import os, json, re
 from typing import Optional
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-)
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 PRIORITY_LEVELS = ["HIGH", "MEDIUM", "LOW"]
 
@@ -123,11 +119,17 @@ Understood. JSON risk score only.
 {prompt}"""
     
     try:
-        response = _model.generate_content(
-            full_prompt,
-            generation_config={"temperature": 0.0, "max_output_tokens": 256}
+        response = _client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=full_prompt,
+            config={'temperature': 0.0, 'max_output_tokens': 256}
         )
         return _parse(response.text)
     except Exception:
         return {"priority": "MEDIUM", "suspected_issue": "unclear or unclassifiable complaint",
                 "risk_factors": [], "confidence": 0.0}
+
+# Wrapper for notebook compatibility
+def score_risk(extraction: dict, questions_asked: list[str], patient_answers: list[str], patient_age: int = None) -> dict:
+    """Wrapper function for notebook compatibility."""
+    return score(extraction, age=patient_age)

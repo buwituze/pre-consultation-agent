@@ -4,13 +4,9 @@ models/model_f.py — Doctor summary generator wrapper.
 
 import os, json, re, datetime
 from typing import Optional
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-)
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 _SYSTEM = """You are a clinical documentation assistant. Write a patient brief for a doctor.
 Rules:
@@ -79,9 +75,10 @@ Understood. JSON brief only, no diagnosis.
 {prompt}"""
 
     try:
-        response = _model.generate_content(
-            full_prompt,
-            generation_config={"temperature": 0.1, "max_output_tokens": 512}
+        response = _client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=full_prompt,
+            config={'temperature': 0.1, 'max_output_tokens': 512}
         )
         gemini_out = _parse(response.text)
     except Exception:
