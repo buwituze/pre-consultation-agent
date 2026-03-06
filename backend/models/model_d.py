@@ -120,7 +120,7 @@ Understood. JSON risk score only.
     
     try:
         response = _client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-1.5-flash-latest',
             contents=full_prompt,
             config={'temperature': 0.0, 'max_output_tokens': 256}
         )
