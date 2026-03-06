@@ -106,29 +106,34 @@ Return only the JSON, no other text."""
     model = genai.GenerativeModel('models/gemini-flash-latest')
     
     # Debug: check prompt length
-    import tiktoken
-    try:
-        enc = tiktoken.get_encoding("cl100k_base")
-        prompt_tokens = len(enc.encode(full_prompt))
-        print(f"DEBUG - Prompt tokens: {prompt_tokens}")
-    except:
-        print(f"DEBUG - Prompt chars: {len(full_prompt)}")
+    print(f"DEBUG - Prompt length: {len(full_prompt)} chars")
+    
+    # Try with safety settings disabled
+    safety_settings = {
+        'HARASSMENT': 'BLOCK_NONE',
+        'HATE_SPEECH': 'BLOCK_NONE',
+        'SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+        'DANGEROUS_CONTENT': 'BLOCK_NONE',
+    }
     
     response = model.generate_content(
         full_prompt,
         generation_config={
             'temperature': 0.0,
-            'max_output_tokens': 1024,
-            'top_p': 0.95
-        }
+            'max_output_tokens': 2048,
+            'top_p': 0.95,
+            'top_k': 40
+        },
+        safety_settings=safety_settings
     )
     
-    # Check response
+    # Debug output
     print(f"DEBUG - Response length: {len(response.text) if response.text else 0}")
     print(f"DEBUG - Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
+    print(f"DEBUG - Full response text:\n{response.text}\n---END---")
     
-    if not response.text or len(response.text) < 20:
-        raise RuntimeError(f"Empty response. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
+    if not response.text or len(response.text) < 50:
+        raise RuntimeError(f"Empty/short response. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'N/A'}")
     
     return _validate(_parse(response.text))
 
