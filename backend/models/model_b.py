@@ -103,7 +103,7 @@ Patient says: {transcript.strip()}
 
 Return only the JSON, no other text."""
 
-    model = genai.GenerativeModel('models/gemini-2.5-flash')
+    model = genai.GenerativeModel('models/gemini-2.0-flash')
     
     # Debug: check prompt length
     print(f"DEBUG - Prompt length: {len(full_prompt)} chars")

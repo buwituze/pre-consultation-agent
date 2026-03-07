@@ -84,7 +84,7 @@ Understood. JSON brief only, no diagnosis.
 {prompt}"""
 
     try:
-        model = genai.GenerativeModel('models/gemini-2.5-flash')
+        model = genai.GenerativeModel('models/gemini-2.0-flash')
         response = model.generate_content(
             full_prompt,
             generation_config={
