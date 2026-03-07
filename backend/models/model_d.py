@@ -128,7 +128,7 @@ Understood. JSON risk score only.
 {prompt}"""
     
     try:
-        model = genai.GenerativeModel('models/gemini-2.0-flash')
+        model = genai.GenerativeModel('models/gemini-flash-latest')
         response = model.generate_content(
             full_prompt,
             generation_config={
