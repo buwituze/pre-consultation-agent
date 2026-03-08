@@ -147,6 +147,23 @@ def _confidence(chunks: list) -> float:
     return round(max(0.0, 1.0 - hits / len(chunks)), 3)
 
 
+def _assess_quality(confidence: float) -> str:
+    """
+    Assess transcription quality based on mean confidence score.
+    
+    Returns:
+        "high"   if confidence >= 0.85 (trust for rule-based questions)
+        "medium" if 0.70 <= confidence < 0.85 (some uncertainty)
+        "low"    if confidence < 0.70 (use AI conversation for safety)
+    """
+    if confidence >= 0.85:
+        return "high"
+    elif confidence >= 0.70:
+        return "medium"
+    else:
+        return "low"
+
+
 def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
     """
     Transcribe raw audio bytes in WAV format.
@@ -299,12 +316,14 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
 
     full_text = " ".join(s["text"] for s in segments if s["text"])
     mean_conf = round(float(np.mean([s["confidence"] for s in segments])), 3)
+    quality = _assess_quality(mean_conf)
     
-    print(f"Transcription complete. Text length: {len(full_text)} chars, Confidence: {mean_conf:.2%}")
+    print(f"Transcription complete. Text length: {len(full_text)} chars, Confidence: {mean_conf:.2%}, Quality: {quality}")
 
     return {
         "full_text":         full_text,
         "dominant_language": resolved,
         "mean_confidence":   mean_conf,
         "language_source":   source,
+        "quality":           quality,  # NEW: "high", "medium", or "low"
     }
