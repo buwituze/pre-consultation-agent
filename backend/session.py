@@ -37,9 +37,24 @@ class Session:
     # Model A output
     transcript:      str                    = ""
     transcript_conf: float                  = 0.0
+    transcription_quality: str              = ""          # high/medium/low from Model A
 
+    # Model B light extraction (for routing)
+    light_extraction: dict                  = field(default_factory=dict)
+    
     # Model B output (plain dict to avoid circular imports)
     extraction:      dict                   = field(default_factory=dict)
+    
+    # New system fields
+    routing_mode:    str                    = ""          # emergency/rule_based/ai_powered
+    routing_reasoning: str                  = ""          # Why this route was chosen
+    chief_complaint: str                    = ""          # From light extraction
+    severity_estimate: int                  = 0           # 1-10 scale
+    red_flags_detected: bool                = False
+    patient_name:    str                    = ""          # Asked during conversation
+    patient_gender:  str                    = ""          # Asked during conversation
+    api_calls_count: int                    = 0           # Track API usage
+    cost_estimate:   float                  = 0.0         # Estimated cost in USD
 
     # Model C conversation log
     turns:           list[ConversationTurn] = field(default_factory=list)

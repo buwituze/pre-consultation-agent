@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 from session import create_session, get_session, delete_session
+from utils.session_logger import log_session
+from datetime import datetime
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -65,7 +67,31 @@ def get_session_state(session_id: str):
 @router.delete("/{session_id}")
 def end_session(session_id: str):
     """Delete a session and free its memory."""
-    if not get_session(session_id):
+    session = get_session(session_id)
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    
+    # Log session data before deletion (if conversation happened)
+    if session.routing_mode and session.api_calls_count > 0:
+        try:
+            log_session({
+                "session_id": session.id,
+                "patient_id": 0,  # No patient login in this system
+                "conversation_mode": session.routing_mode,
+                "chief_complaint": session.chief_complaint,
+                "severity_estimate": session.severity_estimate,
+                "red_flags_detected": session.red_flags_detected,
+                "transcription_quality": session.transcription_quality,
+                "api_calls_count": session.api_calls_count,
+                "cost_estimate": session.cost_estimate,
+                "routing_reasoning": session.routing_reasoning,
+                "timestamp": datetime.now().isoformat(),
+                "patient_age": session.patient_age,
+                "patient_gender": session.patient_gender,
+            })
+            print(f"✅ Session {session_id} logged successfully")
+        except Exception as e:
+            print(f"⚠️ Failed to log session {session_id}: {e}")
+    
     delete_session(session_id)
     return {"deleted": session_id}

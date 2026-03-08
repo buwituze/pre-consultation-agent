@@ -28,8 +28,9 @@ from pydantic import BaseModel
 
 from session import get_session, SessionStage, ConversationTurn
 from models import model_a, model_b, model_c
+from models.model_c_rules import get_symptom_questions, PATIENT_INFO_QUESTIONS
 
-MAX_TURNS = int(os.getenv("MAX_TURNS", 6))
+MAX_TURNS = int(os.getenv("MAX_TURNS", 10))  # Increased for rule-based questions
 
 router = APIRouter(prefix="/sessions", tags=["dialogue"])
 
@@ -59,35 +60,147 @@ def get_next_question(session_id: str):
             status_code=409,
             detail=f"Cannot get question in stage '{session.stage.value}'. Must be AWAITING_AUDIO or QUESTIONING.",
         )
-    if not session.extraction:
+    if not session.light_extraction:
         raise HTTPException(
             status_code=409,
             detail="No extraction available yet. Submit audio first via POST /sessions/{id}/audio.",
         )
 
-    if model_c.is_coverage_complete(session.extraction, len(session.turns), MAX_TURNS):
-        session.stage = SessionStage.SCORING
+    # Check if we need to ask patient info questions first (always first)
+    if not session.patient_name or not session.patient_age or not session.patient_gender:
+        needed_info = []
+        if not session.patient_name: needed_info.append("name")
+        if not session.patient_age: needed_info.append("age")  
+        if not session.patient_gender: needed_info.append("gender")
+        
+        # Get patient info question
+        info_type = needed_info[0]
+        lang = "rw" if session.language == "kinyarwanda" else "en"
+        next_question = PATIENT_INFO_QUESTIONS[info_type][lang]
+        
+        session.stage = SessionStage.QUESTIONING
         return {
             "session_id":        session.id,
             "stage":             session.stage.value,
-            "coverage_complete": True,
-            "next_question":     None,
-            "extraction":        session.extraction,
+            "coverage_complete": False,
+            "next_question":     next_question,
+            "question_type":     "patient_info",
+            "routing_mode":      session.routing_mode,
         }
 
-    next_question = model_c.select_next_question(
-        extraction      = session.extraction,
-        questions_asked = session.questions_asked,
-        patient_answers = session.patient_answers,
-    )
+    # Determine question source based on routing mode
+    if session.routing_mode == "emergency":
+        # Emergency: minimal questions, move to scoring quickly
+        if len(session.turns) >= 1:  # Asked patient info, now move on
+            # Do full extraction before scoring
+            print("🔄 Emergency mode: performing full extraction...")
+            conversation_history = session.transcript + " " + " ".join(session.patient_answers)
+            try:
+                session.extraction = model_b.extract_full(
+                    transcript=session.transcript,
+                    conversation_history=conversation_history,
+                    target_language=session.language
+                )
+                session.api_calls_count += 1
+            except Exception as e:
+                print(f"❌ Full extraction failed: {e}")
+                session.extraction = session.light_extraction  # Fallback
+            
+            session.stage = SessionStage.SCORING
+            return {
+                "session_id":        session.id,
+                "stage":             session.stage.value,
+                "coverage_complete": True,
+                "next_question":     None,
+                "extraction":        session.extraction,
+            }
+        else:
+            # Ask one emergency-related question
+            next_question = "Can you describe your main concern right now?" if session.language == "english" else "Ni iki gikomeye ubu?"
+    
+    elif session.routing_mode == "rule_based":
+        # Rule-based: use predefined questions
+        questions = get_symptom_questions(session.chief_complaint, session.language)
+        
+        if questions and len(session.turns) < len(questions):
+            # Get next question from the tree
+            next_question = questions[len(session.turns)]
+        elif len(session.turns) >= 3:  # Asked all rule-based questions
+            # Do full extraction before moving to scoring
+            print("🔄 Rule-based mode: performing full extraction...")
+            conversation_history = session.transcript + " " + " ".join(session.patient_answers)
+            try:
+                session.extraction = model_b.extract_full(
+                    transcript=session.transcript,
+                    conversation_history=conversation_history,
+                    target_language=session.language
+                )
+                session.api_calls_count += 1
+            except Exception as e:
+                print(f"❌ Full extraction failed: {e}")
+                session.extraction = session.light_extraction  # Fallback
+            
+            session.stage = SessionStage.SCORING
+            return {
+                "session_id":        session.id,
+                "stage":             session.stage.value,
+                "coverage_complete": True,
+                "next_question":     None,
+                "extraction":        session.extraction,
+            }
+        else:
+            # Fallback to AI if something went wrong
+            next_question = model_c.select_next_question(
+                extraction=session.light_extraction,
+                questions_asked=session.questions_asked,
+                patient_answers=session.patient_answers,
+            )
+            session.api_calls_count += 1
+    
+    else:  # ai_powered
+        # AI-powered: use old Model C with adaptive questions
+        if model_c.is_coverage_complete(session.light_extraction, len(session.turns), MAX_TURNS):
+            # Do full extraction before scoring
+            print("🔄 AI mode: performing full extraction...")
+            conversation_history = session.transcript + " " + " ".join(session.patient_answers)
+            try:
+                session.extraction = model_b.extract_full(
+                    transcript=session.transcript,
+                    conversation_history=conversation_history,
+                    target_language=session.language
+                )
+                session.api_calls_count += 1
+            except Exception as e:
+                print(f"❌ Full extraction failed: {e}")
+                session.extraction = session.light_extraction  # Fallback
+            
+            session.stage = SessionStage.SCORING
+            return {
+                "session_id":        session.id,
+                "stage":             session.stage.value,
+                "coverage_complete": True,
+                "next_question":     None,
+                "extraction":        session.extraction,
+            }
+        
+        next_question = model_c.select_next_question(
+            extraction=session.light_extraction,
+            questions_asked=session.questions_asked,
+            patient_answers=session.patient_answers,
+        )
+        session.api_calls_count += 1
+    
     session.stage = SessionStage.QUESTIONING
+    session.cost_estimate = session.api_calls_count * 0.0004
 
     return {
         "session_id":        session.id,
         "stage":             session.stage.value,
         "coverage_complete": False,
         "next_question":     next_question,
-        "extraction":        session.extraction,
+        "routing_mode":      session.routing_mode,
+        "api_calls":         session.api_calls_count,
+        "cost_estimate_usd": session.cost_estimate,
     }
 
 
@@ -108,15 +221,30 @@ async def submit_answer(session_id: str, body: AnswerRequest):
             detail=f"Session is in stage '{session.stage.value}', not questioning.",
         )
 
+    # Check if this is a patient info answer
+    answer_lower = body.answer.lower()
+    if not session.patient_name and ("name" in body.question.lower() or "izina" in body.question.lower()):
+        session.patient_name = body.answer
+    elif not session.patient_gender and ("gender" in body.question.lower() or "igitsina" in body.question.lower()):
+        session.patient_gender = body.answer
+    # Note: age might already be set from initial session creation
+    
     session.turns.append(ConversationTurn(question=body.question, answer=body.answer))
+    
+    # Don't update extraction on every turn to save API calls - we'll do full extraction at end
+    # Just continue with light extraction for now
 
-    combined = session.transcript + " " + " ".join(session.patient_answers)
-    try:
-        session.extraction = await asyncio.to_thread(model_b.extract, combined)
-    except Exception:
-        pass
-
-    if model_c.is_coverage_complete(session.extraction, len(session.turns), MAX_TURNS):
+    # Check based on routing mode
+    if session.routing_mode == "emergency" and len(session.turns) >= 1:
+        is_complete = True
+    elif session.routing_mode == "rule_based" and len(session.turns) >= 3:
+        is_complete = True
+    elif session.routing_mode == "ai_powered" and model_c.is_coverage_complete(session.light_extraction, len(session.turns), MAX_TURNS):
+        is_complete = True
+    else:
+        is_complete = False
+    
+    if is_complete:
         session.stage = SessionStage.SCORING
         return {
             "session_id":        session.id,
@@ -176,15 +304,26 @@ async def submit_answer_audio(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Answer transcription failed: {e}")
 
+    # Check if this is a patient info answer
+    answer_lower = answer_text.lower()
+    if not session.patient_name and ("name" in question.lower() or "izina" in question.lower()):
+        session.patient_name = answer_text
+    elif not session.patient_gender and ("gender" in question.lower() or "igitsina" in question.lower()):
+        session.patient_gender = answer_text
+    
     session.turns.append(ConversationTurn(question=question, answer=answer_text))
-
-    combined = session.transcript + " " + " ".join(session.patient_answers)
-    try:
-        session.extraction = await asyncio.to_thread(model_b.extract, combined)
-    except Exception:
-        pass
-
-    if model_c.is_coverage_complete(session.extraction, len(session.turns), MAX_TURNS):
+    
+    # Check completion based on routing mode
+    if session.routing_mode == "emergency" and len(session.turns) >= 1:
+        is_complete = True
+    elif session.routing_mode == "rule_based" and len(session.turns) >= 3:
+        is_complete = True
+    elif session.routing_mode == "ai_powered" and model_c.is_coverage_complete(session.light_extraction, len(session.turns), MAX_TURNS):
+        is_complete = True
+    else:
+        is_complete = False
+    
+    if is_complete:
         session.stage = SessionStage.SCORING
         return {
             "session_id":         session.id,
@@ -197,15 +336,26 @@ async def submit_answer_audio(
 
     next_question = model_c.select_next_question(
         extraction      = session.extraction,
-        questions_asked = session.questions_asked,
-        patient_answers = session.patient_answers,
-    )
+                questions_asked=session.questions_asked,
+                patient_answers=session.patient_answers,
+            )
+            session.api_calls_count += 1
+    else:  # ai_powered or emergency
+        next_question = model_c.select_next_question(
+            extraction=session.light_extraction,
+            questions_asked=session.questions_asked,
+            patient_answers=session.patient_answers,
+        )
+        session.api_calls_count += 1
 
+    session.cost_estimate = session.api_calls_count * 0.0004
     return {
         "session_id":         session.id,
         "stage":              session.stage.value,
         "coverage_complete":  False,
         "next_question":      next_question,
-        "extraction":         session.extraction,
+        "routing_mode":       session.routing_mode,
         "transcribed_answer": answer_text,
+        "api_calls":          session.api_calls_count,
+        "cost_estimate_usd":  session.cost_estimate,
     }
