@@ -36,11 +36,14 @@ Rules:
 - No disease names. No diagnosis. No medical advice. No causes.
 - Do not change the priority level.
 - 3 to 5 short sentences. Calm and clear.
-- Output the patient message only."""
+- Output the patient message only.
+- IMPORTANT: Output in the language specified in the Language field. If Language is kinyarwanda, respond entirely in Kinyarwanda."""
 
 _FEW_SHOT = [
     {"role": "user",  "parts": ["Priority: HIGH\nComplaint: chest pain\nLocation: Emergency, Desk 3\nLanguage: english"]},
     {"role": "model", "parts": ["Your symptoms need prompt medical attention. Please proceed to Emergency, Desk 3 right away. A healthcare professional will see you shortly. If you feel worse at any time, please notify a staff member immediately."]},
+    {"role": "user",  "parts": ["Priority: HIGH\nComplaint: ububabare bw'igituza\nLocation: Emergency, Desk 3\nLanguage: kinyarwanda"]},
+    {"role": "model", "parts": ["Ibimenyetso byawe bisaba ubuvuzi bwihutirwa. Nyamuneka jya kuri Emergency, Desk 3 vuba. Umuganga azakureba vuba. Niba wumvise ko ibintu birushijeho kuba bibi, menyesha umukozi uhari ako kanya."]},
     {"role": "user",  "parts": ["Priority: MEDIUM\nComplaint: headache\nLocation: Waiting Area B\nLanguage: english"]},
     {"role": "model", "parts": ["Thank you for sharing your information. Please take a seat in Waiting Area B and a healthcare professional will see you soon. If your condition changes while you wait, please let a staff member know."]},
     {"role": "user",  "parts": ["Priority: LOW\nComplaint: sore throat\nLocation: General Outpatient\nLanguage: english"]},

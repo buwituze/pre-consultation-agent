@@ -23,14 +23,24 @@ RED_FLAG_FOLLOWUPS = [
     "Is the patient able to move all limbs normally?",
 ]
 
-_SYSTEM = """You are a clinical question-selection assistant in a hospital pre-consultation system.
+_SYSTEM_EN = """You are a clinical question-selection assistant in a hospital pre-consultation system.
 Output ONE question only. Nothing else.
 Rules:
 - One question per response. No exceptions.
 - No diagnosis, no medical advice, no interpretation.
 - Do not repeat a question already asked.
 - Keep it short and natural to say out loud.
-- Output the question text only — no labels, no prefix."""
+- Output the question text only — no labels, no prefix.
+- Output the question in English."""
+
+_SYSTEM_RW = """Uri umufasha wo guhitamo ibibazo mu gishushanyo mbere y'ubuvuzi mu bitaro.
+Tanga IKIBAZO KIMWE gusa. Nta kindi.
+Amategeko:
+- Ikibazo kimwe gusa ku gisubizo. Nta budasobanutse.
+- Nta gusuzuma, nta nama z'ubuvuzi, nta gusobanura.
+- Ntukongere ikibazo cyamaze kubazwa.
+- Kigire kigufi kandi kijyanye no kuvuga.
+- Tangaza ikibazo mu Kinyarwanda gusa — nta nimero, nta mvugo y'imbere."""
 
 
 def _stage(num_turns: int) -> str:
@@ -40,7 +50,8 @@ def _stage(num_turns: int) -> str:
 
 
 def select_next_question(extraction: dict, questions_asked: list[str],
-                         patient_answers: list[str]) -> str:
+                         patient_answers: list[str],
+                         language: str = "kinyarwanda") -> str:
     """
     Select the single best next question given the current session state.
 
@@ -48,10 +59,12 @@ def select_next_question(extraction: dict, questions_asked: list[str],
         extraction      : Model B extraction dict.
         questions_asked : Questions already asked this session.
         patient_answers : Corresponding patient answers.
+        language        : 'kinyarwanda' or 'english' — output language.
 
     Returns:
         Question string ready to speak to the patient.
     """
+    system_prompt = _SYSTEM_RW if language == "kinyarwanda" else _SYSTEM_EN
     known = [f"{k}: {v}" for k, v in extraction.items() if v]
 
     history_lines = "\n".join(
@@ -66,6 +79,8 @@ def select_next_question(extraction: dict, questions_asked: list[str],
 
     coverage = "\n".join(f"- {c}" for c in COVERAGE_CHECKLIST)
 
+    lang_instruction = "Output the question in Kinyarwanda." if language == "kinyarwanda" else "Output the question in English."
+
     prompt = f"""Patient state:
 {chr(10).join(f'- {k}' for k in known) or '- (unknown)'}
 
@@ -77,9 +92,10 @@ Stage: {_stage(len(questions_asked))}
 Coverage checklist (must be addressed eventually):
 {coverage}
 
+{lang_instruction}
 Output the single best next question."""
 
-    full_prompt = f"""{_SYSTEM}
+    full_prompt = f"""{system_prompt}
 
 Understood. One question only.
 

@@ -251,6 +251,7 @@ async def kiosk_audio(
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
+        language        = session.language,
     )
     session.stage = SessionStage.QUESTIONING
     print(f"✅ Question generated!")
@@ -336,6 +337,7 @@ async def kiosk_answer(
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
+        language        = session.language,
     )
     print(f"✅ Next question generated!")
     print(f"💬 ASSISTANT ASKS: '{next_q}'")

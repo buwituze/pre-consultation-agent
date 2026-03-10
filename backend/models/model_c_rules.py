@@ -40,7 +40,7 @@ PATIENT_INFO_QUESTIONS = {
         },
         {
             "id": "patient_gender",
-            "question": "Ni gabo cyangwa gore?",
+            "question": "Uri umugabo cg umugore?",
             "targets": "patient_gender",
             "priority": 3,
             "required": True

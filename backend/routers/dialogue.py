@@ -154,6 +154,7 @@ def get_next_question(session_id: str):
                 extraction=session.light_extraction,
                 questions_asked=session.questions_asked,
                 patient_answers=session.patient_answers,
+                language=session.language,
             )
             session.api_calls_count += 1
     
@@ -187,6 +188,7 @@ def get_next_question(session_id: str):
             extraction=session.light_extraction,
             questions_asked=session.questions_asked,
             patient_answers=session.patient_answers,
+            language=session.language,
         )
         session.api_calls_count += 1
     
@@ -258,6 +260,7 @@ async def submit_answer(session_id: str, body: AnswerRequest):
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
+        language        = session.language,
     )
 
     return {
@@ -334,17 +337,20 @@ async def submit_answer_audio(
             "transcribed_answer": answer_text,
         }
 
-    next_question = model_c.select_next_question(
-        extraction      = session.extraction,
-                questions_asked=session.questions_asked,
-                patient_answers=session.patient_answers,
-            )
-            session.api_calls_count += 1
+    if session.routing_mode == "rule_based":
+        next_question = model_c.select_next_question(
+            extraction=session.extraction,
+            questions_asked=session.questions_asked,
+            patient_answers=session.patient_answers,
+            language=session.language,
+        )
+        session.api_calls_count += 1
     else:  # ai_powered or emergency
         next_question = model_c.select_next_question(
             extraction=session.light_extraction,
             questions_asked=session.questions_asked,
             patient_answers=session.patient_answers,
+            language=session.language,
         )
         session.api_calls_count += 1
 
