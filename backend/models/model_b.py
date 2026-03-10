@@ -104,9 +104,13 @@ Output (pure {target_language} only):"""
     
     try:
         response = _client.models.generate_content(
-            model='gemini-1.5-flash-latest',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt,
-            config={'temperature': 0.0, 'max_output_tokens': 200}
+            config={
+                'temperature': 0.0,
+                'max_output_tokens': 200,
+                'thinking_config': {'thinking_budget': 0},
+            }
         )
         return response.text.strip()
     except Exception as e:
@@ -184,9 +188,14 @@ Extract routing information as JSON:"""
     
     try:
         response = _client.models.generate_content(
-            model='gemini-1.5-flash-latest',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt,
-            config={'temperature': 0.0, 'max_output_tokens': 150}
+            config={
+                'temperature': 0.0,
+                'max_output_tokens': 150,
+                'response_mime_type': 'application/json',
+                'thinking_config': {'thinking_budget': 0},
+            }
         )
         
         result = _parse_json(response.text)
@@ -291,9 +300,14 @@ Extract all clinical information as JSON:"""
     
     try:
         response = _client.models.generate_content(
-            model='gemini-1.5-flash-latest',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt,
-            config={'temperature': 0.0, 'max_output_tokens': 400}
+            config={
+                'temperature': 0.0,
+                'max_output_tokens': 400,
+                'response_mime_type': 'application/json',
+                'thinking_config': {'thinking_budget': 0},
+            }
         )
         
         result = _parse_json(response.text)

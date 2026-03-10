@@ -60,10 +60,10 @@ router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 class StartRequest(BaseModel):
     language:    Optional[str] = None    # Patient's selection, or None if skipped
     patient_age: Optional[int] = None
-    patient_name: str                     # Required for DB storage
-    patient_phone: str                    # Required for DB storage
+    patient_name: str = ""                # Collected during conversation
+    patient_phone: str = ""               # Collected during conversation
     patient_location: Optional[str] = None
-    facility_id: int                      # Required to know which facility
+    facility_id: int = 1                  # Default facility
 
 
 class StartResponse(BaseModel):
@@ -75,6 +75,8 @@ class QuestionResponse(BaseModel):
     session_id:        str
     question:          str
     coverage_complete: bool
+    patient_name:      str = ""
+    patient_phone:     str = ""
 
 
 class FinishResponse(BaseModel):
@@ -259,6 +261,7 @@ async def kiosk_audio(
         session_id        = session.id,
         question          = question,
         coverage_complete = False,
+        patient_name      = session.patient_name,
     )
 
 
@@ -326,7 +329,7 @@ async def kiosk_answer(
         session.stage = SessionStage.SCORING
         print(f"✅ Coverage complete! ({len(session.turns)} turns completed)")
         print("="*80 + "\n")
-        return QuestionResponse(session_id=session.id, question="", coverage_complete=True)
+        return QuestionResponse(session_id=session.id, question="", coverage_complete=True, patient_name=session.patient_name)
 
     print(f"📊 Coverage not yet complete ({len(session.turns)}/{MAX_TURNS} turns)")
     next_q = model_c.select_next_question(
@@ -337,7 +340,7 @@ async def kiosk_answer(
     print(f"✅ Next question generated!")
     print(f"💬 ASSISTANT ASKS: '{next_q}'")
     print("="*80 + "\n")
-    return QuestionResponse(session_id=session.id, question=next_q, coverage_complete=False)
+    return QuestionResponse(session_id=session.id, question=next_q, coverage_complete=False, patient_name=session.patient_name)
 
 
 @router.post("/{session_id}/finish", response_model=FinishResponse)

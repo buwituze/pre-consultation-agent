@@ -3,9 +3,9 @@ models/model_c.py — Next-question selection wrapper.
 """
 
 import os, re
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 COVERAGE_CHECKLIST = [
     "severity or intensity of the main symptom",
@@ -85,10 +85,14 @@ Understood. One question only.
 
 {prompt}"""
     
-    model = genai.GenerativeModel('models/gemini-flash-latest')
-    response = model.generate_content(
-        full_prompt,
-        generation_config={'temperature': 0.2, 'max_output_tokens': 100, 'top_p': 0.95}
+    response = _client.models.generate_content(
+        model='gemini-3.1-flash-lite-preview',
+        contents=full_prompt,
+        config={
+            'temperature': 0.2,
+            'max_output_tokens': 100,
+            'thinking_config': {'thinking_budget': 0},
+        }
     )
     question = re.sub(r"^(question|q)[:\-]?\s*", "", response.text.strip(), flags=re.IGNORECASE)
     if question and not question.endswith("?"):

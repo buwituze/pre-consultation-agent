@@ -4,9 +4,9 @@ models/model_d.py — Risk and priority scoring wrapper.
 
 import os, json, re
 from typing import Optional
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 PRIORITY_LEVELS = ["HIGH", "MEDIUM", "LOW"]
 
@@ -128,13 +128,14 @@ Understood. JSON risk score only.
 {prompt}"""
     
     try:
-        model = genai.GenerativeModel('models/gemini-flash-latest')
-        response = model.generate_content(
-            full_prompt,
-            generation_config={
+        response = _client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=full_prompt,
+            config={
                 'temperature': 0.0,
                 'max_output_tokens': 300,
-                'top_p': 0.95
+                'response_mime_type': 'application/json',
+                'thinking_config': {'thinking_budget': 0},
             }
         )
         return _parse(response.text)

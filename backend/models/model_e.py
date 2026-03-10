@@ -4,9 +4,9 @@ models/model_e.py — Patient-facing guidance message generator.
 
 import os
 from typing import Optional
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 _FALLBACK = {
     "english": {
@@ -96,10 +96,14 @@ Understood. Patient message only, no diagnosis.
 Now generate for:
 {prompt}"""
         
-        model = genai.GenerativeModel('models/gemini-flash-latest')
-        response = model.generate_content(
-            full_prompt,
-            generation_config={'temperature': 0.3, 'max_output_tokens': 200, 'top_p': 0.95}
+        response = _client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=full_prompt,
+            config={
+                'temperature': 0.3,
+                'max_output_tokens': 200,
+                'thinking_config': {'thinking_budget': 0},
+            }
         )
         message  = response.text.strip()
     except Exception:
