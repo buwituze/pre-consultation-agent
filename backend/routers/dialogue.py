@@ -154,7 +154,6 @@ def get_next_question(session_id: str):
                 extraction=session.light_extraction,
                 questions_asked=session.questions_asked,
                 patient_answers=session.patient_answers,
-                language=session.language,
             )
             session.api_calls_count += 1
     
@@ -188,7 +187,6 @@ def get_next_question(session_id: str):
             extraction=session.light_extraction,
             questions_asked=session.questions_asked,
             patient_answers=session.patient_answers,
-            language=session.language,
         )
         session.api_calls_count += 1
     
@@ -260,7 +258,6 @@ async def submit_answer(session_id: str, body: AnswerRequest):
         extraction      = session.extraction,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
-        language        = session.language,
     )
 
     return {
@@ -342,7 +339,6 @@ async def submit_answer_audio(
             extraction=session.extraction,
             questions_asked=session.questions_asked,
             patient_answers=session.patient_answers,
-            language=session.language,
         )
         session.api_calls_count += 1
     else:  # ai_powered or emergency
@@ -350,7 +346,6 @@ async def submit_answer_audio(
             extraction=session.light_extraction,
             questions_asked=session.questions_asked,
             patient_answers=session.patient_answers,
-            language=session.language,
         )
         session.api_calls_count += 1
 
