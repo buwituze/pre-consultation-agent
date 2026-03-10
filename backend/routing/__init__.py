@@ -1,5 +1,5 @@
 """
-routing/ — Conversation routing logic.
+routing/ — Conversation routing logic and queue/department routing.
 """
 
 from routing.conversation_router import (
@@ -12,6 +12,13 @@ from routing.conversation_router import (
     ConversationMode
 )
 
+from routing.queue_routing import (
+    assign_routing,
+    get_queue_lengths,
+    reset_queues,
+    RoutingDecision
+)
+
 __all__ = [
     "route_conversation",
     "should_use_ai",
@@ -19,5 +26,9 @@ __all__ = [
     "format_routing_report",
     "log_routing_decision",
     "get_routing_statistics",
-    "ConversationMode"
+    "ConversationMode",
+    "assign_routing",
+    "get_queue_lengths",
+    "reset_queues",
+    "RoutingDecision",
 ]
