@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -23,13 +24,16 @@ from database.database import DatabaseConnection
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize database connection pool
-    print("🔌 Initializing database connection pool...")
-    try:
-        DatabaseConnection.initialize_pool()
-        print("✅ Database connected")
-    except Exception as e:
-        print(f"⚠️ Database connection failed: {e}")
+    # Initialize database connection pool (skip if USE_DB=false)
+    if os.getenv('USE_DB', 'true').lower() != 'false':
+        print("🔌 Initializing database connection pool...")
+        try:
+            DatabaseConnection.initialize_pool()
+            print("✅ Database connected")
+        except Exception as e:
+            print(f"⚠️ Database connection failed: {e}")
+    else:
+        print("⚠️ Database disabled (USE_DB=false) — kiosk endpoints won't work")
     
     # Load Whisper models in background — this takes ~1-2 min on first run
     # Server will start immediately, models load asynchronously
