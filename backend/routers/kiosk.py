@@ -131,6 +131,13 @@ def kiosk_start(body: StartRequest):
     Start a new patient session.
     language is the patient's screen selection — optional, used as a hint only.
     Creates patient record and session record in database.
+    
+    Returns:
+        StartResponse with session_id and greeting
+        
+    Raises:
+        503 if database is not ready
+        500 if database operation fails
     """
     print("\n" + "="*80)
     print("🚀 NEW SESSION STARTED")
@@ -142,18 +149,34 @@ def kiosk_start(body: StartRequest):
     # Normalize language to lowercase for consistency
     normalized_language = body.language.lower() if body.language else "unknown"
     
-    # Create or get patient in database
-    patient = PatientDB.create_patient(
-        full_name=body.patient_name,
-        phone_number=body.patient_phone,
-        preferred_language=normalized_language if normalized_language != "unknown" else "kinyarwanda",
-        location=body.patient_location
-    )
-    print(f"Patient DB ID: {patient['patient_id']}")
-    
-    # Create session in database
-    db_session = SessionDB.create_session(patient['patient_id'])
-    print(f"Session DB ID: {db_session['session_id']}")
+    try:
+        # Create or get patient in database
+        patient = PatientDB.create_patient(
+            full_name=body.patient_name,
+            phone_number=body.patient_phone,
+            preferred_language=normalized_language if normalized_language != "unknown" else "kinyarwanda",
+            location=body.patient_location
+        )
+        print(f"Patient DB ID: {patient['patient_id']}")
+        
+        # Create session in database
+        db_session = SessionDB.create_session(patient['patient_id'])
+        print(f"Session DB ID: {db_session['session_id']}")
+        
+    except Exception as e:
+        error_msg = f"Database operation failed: {type(e).__name__}: {str(e)}"
+        print(f"❌ {error_msg}")
+        import traceback
+        traceback.print_exc()
+        
+        # Check if it's a connection error
+        if "connection" in str(e).lower() or "pool" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail="Database not available. Check server startup at /startup/status"
+            )
+        else:
+            raise HTTPException(status_code=500, detail=error_msg)
     
     # Create in-memory session (for fast conversation)
     session = create_session(

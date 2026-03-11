@@ -36,7 +36,19 @@ async def receive_audio(
     regardless — the selected language is never used to skip detection.
 
     Transitions session: AWAITING_AUDIO → AWAITING_AUDIO (stays until dialogue begins)
+    
+    Returns 503 if models are still loading or failed to load.
     """
+    # Check if models are ready
+    models_status = model_a.get_models_status()
+    if not models_status.get("ready", False):
+        print(f"\n⚠️ Models not ready. Status: {models_status.get('status', 'unknown')}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI models still loading ({models_status.get('status')}). "
+                   f"Check /startup/status and retry in a few seconds."
+        )
+    
     session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")

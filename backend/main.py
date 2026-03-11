@@ -22,30 +22,70 @@ from routers import auth, facilities, rooms, queue, patients
 from database.database import DatabaseConnection
 
 
+# Global state to track initialization
+_startup_info = {
+    "database_ready": False,
+    "models_ready": False,
+    "startup_errors": [],
+}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _startup_info
+    _startup_info = {"database_ready": False, "models_ready": False, "startup_errors": []}
+    
     # Initialize database connection pool (skip if USE_DB=false)
     if os.getenv('USE_DB', 'true').lower() != 'false':
         print("🔌 Initializing database connection pool...")
         try:
             DatabaseConnection.initialize_pool()
-            print("✅ Database connected")
+            # Verify connection works with a test query
+            DatabaseConnection.execute_query("SELECT 1")
+            print("✅ Database connected and verified")
+            _startup_info["database_ready"] = True
         except Exception as e:
-            print(f"⚠️ Database connection failed: {e}")
+            error_msg = f"❌ Database connection failed: {type(e).__name__}: {e}"
+            print(error_msg)
+            _startup_info["database_ready"] = False
+            _startup_info["startup_errors"].append(error_msg)
     else:
-        print("⚠️ Database disabled (USE_DB=false) — kiosk endpoints won't work")
+        print("⚠️ Database disabled (USE_DB=false)")
+        _startup_info["database_ready"] = False
     
-    # Load Whisper models in background — this takes ~1-2 min on first run
-    # Server will start immediately, models load asynchronously
+    # Load Whisper models in background with timeout protection (takes ~1-2 min)
     print("🚀 Server starting... Models will load in background")
-    asyncio.create_task(asyncio.to_thread(model_a.load_models))
+    print("   Expect /models/status → 'loading_kinyarwanda_model' for ~30-90 seconds")
+    
+    async def load_models_with_timeout():
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(model_a.load_models),
+                timeout=300  # 5 minute timeout
+            )
+            _startup_info["models_ready"] = True
+        except asyncio.TimeoutError:
+            error_msg = "❌ Model loading timed out after 5 minutes"
+            print(error_msg)
+            _startup_info["startup_errors"].append(error_msg)
+            model_a._loading_status = "error: timeout after 5 minutes"
+        except Exception as e:
+            error_msg = f"❌ Model loading failed: {type(e).__name__}: {e}"
+            print(error_msg)
+            _startup_info["startup_errors"].append(error_msg)
+            model_a._loading_status = f"error: {str(e)}"
+    
+    asyncio.create_task(load_models_with_timeout())
     
     yield
     
     # Cleanup on shutdown
     print("🔌 Closing database connection pool...")
-    DatabaseConnection.close_pool()
-    print("✅ Shutdown complete")
+    try:
+        DatabaseConnection.close_pool()
+        print("✅ Shutdown complete")
+    except Exception as e:
+        print(f"⚠️ Shutdown warning: {e}")
 
 
 app = FastAPI(
@@ -86,7 +126,35 @@ app.include_router(patients.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Basic health check. Always returns 200 even if systems are degraded."""
+    return {
+        "status": "ok",
+        "database_ready": _startup_info["database_ready"],
+        "models_ready": _startup_info["models_ready"],
+        "startup_errors": _startup_info["startup_errors"],
+    }
+
+
+@app.get("/startup/status")
+def startup_status():
+    """
+    Detailed startup status. Use this to wait for server readiness.
+    
+    When both are true, server is ready for all endpoints.
+    When database_ready=false but models_ready=true,
+    use /sessions API only (transcription works, kiosk doesn't).
+    """
+    return {
+        "database_ready": _startup_info["database_ready"],
+        "models_ready": _startup_info["models_ready"],
+        "startup_errors": _startup_info["startup_errors"],
+        "message": (
+            "✅ All systems ready"
+            if (_startup_info["database_ready"] and _startup_info["models_ready"])
+            else "⏳ Still initializing..." if not _startup_info["startup_errors"]
+            else "❌ Startup failed - see errors"
+        ),
+    }
 
 
 @app.get("/models/status")
