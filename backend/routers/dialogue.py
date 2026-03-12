@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from session import get_session, SessionStage, ConversationTurn
 from models import model_a, model_b, model_c
-from models.model_c_rules import get_symptom_questions, PATIENT_INFO_QUESTIONS
+from models.model_c_rules import get_symptom_questions, get_patient_info_questions
 
 MAX_TURNS = int(os.getenv("MAX_TURNS", 10))  # Increased for rule-based questions
 
@@ -69,14 +69,23 @@ def get_next_question(session_id: str):
     # Check if we need to ask patient info questions first (always first)
     if not session.patient_name or not session.patient_age or not session.patient_gender:
         needed_info = []
-        if not session.patient_name: needed_info.append("name")
-        if not session.patient_age: needed_info.append("age")  
-        if not session.patient_gender: needed_info.append("gender")
+        if not session.patient_name: needed_info.append("patient_name")
+        if not session.patient_age: needed_info.append("patient_age")  
+        if not session.patient_gender: needed_info.append("patient_gender")
         
-        # Get patient info question
-        info_type = needed_info[0]
-        lang = "rw" if session.language == "kinyarwanda" else "en"
-        next_question = PATIENT_INFO_QUESTIONS[info_type][lang]
+        # Get patient info question using the helper (same as notebook)
+        info_id = needed_info[0]
+        info_questions_list = get_patient_info_questions(session.language)
+        
+        # Find the question matching this info_id
+        next_question = None
+        for q_dict in info_questions_list:
+            if q_dict.get("id") == info_id:
+                next_question = q_dict.get("question")
+                break
+        
+        if not next_question:
+            raise HTTPException(status_code=500, detail=f"Question not found for {info_id}")
         
         session.stage = SessionStage.QUESTIONING
         return {
@@ -124,7 +133,8 @@ def get_next_question(session_id: str):
         
         if questions and len(session.turns) < len(questions):
             # Get next question from the tree
-            next_question = questions[len(session.turns)]
+            q_dict = questions[len(session.turns)]
+            next_question = q_dict.get("question") if isinstance(q_dict, dict) else q_dict
         elif len(session.turns) >= 3:  # Asked all rule-based questions
             # Do full extraction before moving to scoring
             print("🔄 Rule-based mode: performing full extraction...")

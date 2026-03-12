@@ -1,6 +1,6 @@
 # fly.toml
 app = "pre-consultation-agent"
-primary_region = "pdx"  # Portland, Oregon (US West)
+primary_region = "sea"  # Portland, Oregon (US West)
 
 [env]
 DEVICE = "cpu"
