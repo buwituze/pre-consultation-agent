@@ -1,0 +1,36 @@
+# fly.toml
+app = "pre-consultation-agent"
+primary_region = "pdx"  # Portland, Oregon (US West)
+
+[env]
+DEVICE = "cpu"
+MAX_TURNS = "6"
+USE_DB = "true"
+
+[build]
+dockerfile = "backend/Dockerfile"
+ignorefile = ".dockerignore"
+
+[http_service]
+internal_port = 8000
+force_https = true
+
+[[services]]
+protocol = "tcp"
+internal_port = 8000
+ports = [{handlers = ["http"], port = 80}, {handlers = ["tls", "http"], port = 443}]
+
+[checks]
+  [checks.status]
+  type = "http"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "60s"
+  method = "GET"
+  path = "/health"
+
+# Optional: Use for persistent storage if needed (costs extra)
+# [[mounts]]
+# source = "pre-consultation-agent-data"
+# destination = "/data"
+# size_gb = 10
