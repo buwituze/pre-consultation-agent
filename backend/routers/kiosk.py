@@ -26,7 +26,7 @@ import os
 import asyncio
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Body
 from pydantic import BaseModel
 from typing import Optional
 
@@ -365,7 +365,10 @@ async def kiosk_answer(
 
 
 @router.post("/{session_id}/finish", response_model=FinishResponse)
-async def kiosk_finish(session_id: str, body: FinishRequest):
+async def kiosk_finish(
+    session_id: str,
+    body: Optional[FinishRequest] = Body(default=None),
+):
     """
     Finalise the session. Runs Models D, E, F and returns
     the patient message and routing decision.
@@ -387,6 +390,7 @@ async def kiosk_finish(session_id: str, body: FinishRequest):
         raise HTTPException(status_code=404, detail="Session not found.")
     if session.stage != SessionStage.SCORING:
         raise HTTPException(status_code=409, detail="Session is not ready to finish.")
+    body = body or FinishRequest()
 
     print("\n🔄 Running Model D (Risk Scoring)...")
     session.score = await asyncio.to_thread(model_d.score, session.extraction, age=session.patient_age)
@@ -431,7 +435,10 @@ async def kiosk_finish(session_id: str, body: FinishRequest):
     # PERSIST TO DATABASE
     # ========================================================================
     print("\n💾 PERSISTING TO DATABASE...")
-    
+
+    # Keep a safe default so finish can still respond if DB persistence fails.
+    queue_entry = {"queue_number": 0}
+
     try:
         # 0. Update patient info (use placeholders if empty — DB requires name length >= 2, valid phone)
         full_name = (body.patient_name or session.patient_name or "").strip()
