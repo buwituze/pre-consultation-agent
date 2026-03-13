@@ -514,10 +514,13 @@ async def kiosk_finish(
             print(f"✅ Saved {len(session.extraction['symptoms'])} symptoms")
         
         # 4. Save prediction/risk score
+        db_risk_level = str(session.score.get('priority', 'medium')).strip().lower()
+        if db_risk_level not in {'low', 'medium', 'high'}:
+            db_risk_level = 'medium'
         PredictionDB.create_prediction(
             session_id=session.db_session_id,
             predicted_condition=session.score.get('suspected_issue', 'Unknown'),
-            risk_level=session.score.get('priority', 'medium'),
+            risk_level=db_risk_level,
             confidence_score=session.score.get('confidence', 0.5),
             model_version='1.0'
         )
