@@ -94,6 +94,31 @@ class PatientDB:
                 return dict(cur.fetchone())
     
     @staticmethod
+    def create_new_patient(preferred_language: str = 'kinyarwanda', location: Optional[str] = None) -> Dict:
+        query = """
+            INSERT INTO patient (full_name, phone_number, preferred_language, location)
+            VALUES (%s, %s, %s, %s)
+            RETURNING *
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, ('', '', preferred_language, location))
+                return dict(cur.fetchone())
+
+    @staticmethod
+    def update_patient(patient_id: int, full_name: str, phone_number: str, location: Optional[str] = None) -> Optional[Dict]:
+        query = """
+            UPDATE patient
+            SET full_name = %s, phone_number = %s, location = %s
+            WHERE patient_id = %s
+            RETURNING *
+        """
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (full_name, phone_number, location, patient_id))
+                return dict(cur.fetchone())
+
+    @staticmethod
     def get_patient_by_phone(phone_number: str) -> Optional[Dict]:
         query = "SELECT * FROM patient WHERE phone_number = %s ORDER BY created_at DESC LIMIT 1"
         return DatabaseConnection.execute_query(query, (phone_number,), fetch_one=True)

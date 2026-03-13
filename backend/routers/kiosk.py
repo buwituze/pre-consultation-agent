@@ -60,8 +60,6 @@ router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 class StartRequest(BaseModel):
     language:    Optional[str] = None    # Patient's selection, or None if skipped
     patient_age: Optional[int] = None
-    patient_name: str = ""                # Collected during conversation
-    patient_phone: str = ""               # Collected during conversation
     patient_location: Optional[str] = None
     facility_id: int = 1                  # Default facility
 
@@ -79,6 +77,9 @@ class QuestionResponse(BaseModel):
     patient_phone:     str = ""
 
 
+class FinishRequest(BaseModel):
+    patient_name:      str = ""
+    patient_phone:     str = ""
 class FinishResponse(BaseModel):
     session_id:      str
     patient_message: str
@@ -142,7 +143,6 @@ def kiosk_start(body: StartRequest):
     print("\n" + "="*80)
     print("🚀 NEW SESSION STARTED")
     print(f"Language selected: {body.language}")
-    print(f"Patient: {body.patient_name}, Phone: {body.patient_phone}")
     print(f"Patient Age: {body.patient_age}")
     print(f"Facility ID: {body.facility_id}")
     
@@ -151,9 +151,7 @@ def kiosk_start(body: StartRequest):
     
     try:
         # Create or get patient in database
-        patient = PatientDB.create_patient(
-            full_name=body.patient_name,
-            phone_number=body.patient_phone,
+        patient = PatientDB.create_new_patient(
             preferred_language=normalized_language if normalized_language != "unknown" else "kinyarwanda",
             location=body.patient_location
         )
@@ -367,7 +365,7 @@ async def kiosk_answer(
 
 
 @router.post("/{session_id}/finish", response_model=FinishResponse)
-async def kiosk_finish(session_id: str):
+async def kiosk_finish(session_id: str, body: FinishRequest):
     """
     Finalise the session. Runs Models D, E, F and returns
     the patient message and routing decision.
@@ -435,6 +433,13 @@ async def kiosk_finish(session_id: str):
     print("\n💾 PERSISTING TO DATABASE...")
     
     try:
+        # 0. Update patient info
+        PatientDB.update_patient(
+            patient_id=session.db_patient_id,
+            full_name=body.patient_name,
+            phone_number=body.patient_phone,
+        )
+        print(f"✅ Updated patient info")
         # 1. Save audio file references
         if hasattr(session, 'audio_files'):
             for seq, speaker, path, size in session.audio_files:
