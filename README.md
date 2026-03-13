@@ -1,124 +1,255 @@
 # Pre-Consultation Agent
 
-A hospital-owned, voice-based pre-consultation and triage agent that acts as a data collection point in a hospital.
+For component specific details, see:
 
-## Solution
+- [Backend README](backend/README.md)
+- [Frontend README](frontend/README.md)
 
-This system is installed as hospital equipment, not a personal app, to:
+## Overview
 
-- Prevent misuse
-- Ensure supervised use
-- Allow access for patients without smartphones or digital literacy
-- Support Kinyarwanda and English voice interaction
+The Pre-Consultation Agent is a hospital-owned, voice-based system that helps collect patient information before a doctor consultation.
 
-**Acts as a supervised consultation support tool, not a diagnostic system.**
+It supports Kinyarwanda and English, asks follow-up questions to clarify symptoms, and provides structured outputs for clinical review.
 
-## Scenario
+This is a supervised support tool, not a diagnosis system.
 
-A patient arrives at a hospital and avoids waiting nearly 4 hours for a 5-minute consultation. Instead, the patient speaks to the voice-based system in Kinyarwanda or English.
+## Project Description
 
-The system asks questions to clarify the patient's issue and forwards the summary to a doctor with a suggestion on what could be the issue. The system can also put a patient on a queue to get an examination and/or direct them to where they need to get to next (such as a particular doctor or department).
+The project combines:
 
-The doctor reviews the information and decides on what the patient needs as usual, like whether they should prioritize the patient for examination and next steps.
+- A FastAPI backend for voice processing, session flow, triage logic, and clinician-facing endpoints.
+- A Flutter frontend for kiosk/patient interaction and doctor review workflows.
+- Testing scripts and notebooks to validate model behavior and system integration.
 
-## Key Features
+Expected value:
 
-- **Voice-based interaction** in Kinyarwanda and English
-- **Pre-consultation triage** to reduce waiting times
-- **Data collection** for healthcare workers
-- **Patient routing** to appropriate departments
-- **Doctor summaries** with suggested next steps
-- **Queue management** for examinations
+- Reduce time spent in first-level intake.
+- Improve symptom capture quality before consultation.
+- Help doctors quickly review patient summaries and suggested next actions.
 
-## Project Structure
+## Demo And Deployment Links
 
-```
-pre-consultation-agent/
-├── backend/
-│   ├── main.py                   # FastAPI main application
-│   ├── routing.py                # Request routing logic
-│   ├── session.py                # Session management
-│   ├── requirements.txt          # Python dependencies
-│   ├── database/                 # Database layer
-│   │   ├── database.py           # Database connection and queries
-│   │   └── schema.sql            # Database schema
-│   ├── models/                   # ML model implementations
-│   │   ├── model_a.py            # Speech-to-text
-│   │   ├── model_b.py            # Language understanding
-│   │   ├── model_c.py            # Dialogue policy
-│   │   ├── model_d.py            # Risk scoring
-│   │   ├── model_e.py            # Patient guidance
-│   │   └── model_f.py            # Doctor summary
-│   └── routers/                  # API endpoints
-│       ├── dialogue.py           # Conversation endpoints
-│       ├── doctor.py             # Doctor interface
-│       ├── kiosk.py              # Kiosk interface
-│       ├── sessions.py           # Session management
-│       ├── transcription.py      # Audio transcription
-│       └── triage.py             # Triage logic
-├── frontend/                     # Flutter mobile/kiosk interface
-│   ├── lib/
-│   │   ├── main.dart             # App entry point
-│   │   ├── screens/              # UI screens
-│   │   └── services/             # API services
-│   └── assets/
-│       └── translations/         # Kinyarwanda & English
-├── notebooks/                    # Model development notebooks
-├── testing/                      # Testing scripts
-└── README.md                     # Project overview
+- Demo video: [Add demo video link here](#)
+- Deployed frontend: [Add deployed frontend link here](#)
+- Deployed backend/API: [Add deployed backend link here](#)
+
+## Quick Setup (Backend + Frontend)
+
+### Prerequisites
+
+- Python 3.10+
+- Flutter SDK (stable)
+- PostgreSQL (for full backend database features)
+
+### 1) Create And Activate Virtual Environment (Backend)
+
+From the project root:
+
+Windows PowerShell:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 ```
 
-## Setup
+macOS/Linux:
 
-Setup a virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
-- Create a venv `python -m venv venv`
-- Activate the venv `source venv/Scripts/activate`
-- Deactivate the venv `deactivate`
+Deactivate when done:
 
-1. **Install Dependencies**
+```bash
+deactivate
+```
 
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+### 2) Backend Setup
 
-2. **Start the Backend API**
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-   ```bash
-   cd backend
-   python main.py
-   ```
+Create a `.env` in `backend/` (use `backend/.env.example` as a template).
 
-   The API will be available at `http://localhost:8000`
+Database setup (if using PostgreSQL locally):
 
-## Testing
+```bash
+createdb pre_consultation_db
+psql -U postgres -d pre_consultation_db -f database/schema.sql
+```
 
-### Option 1: via the Swagger UI (Interactive API Documentation)
+Run API:
 
-1. Start the backend API
-2. Open your browser and navigate to `http://localhost:8000/docs`
-3. Test the API endpoints directly through the Swagger UI interface
+```bash
+uvicorn main:app --reload --port 8000
+```
 
-### Option 2: via the Terminal
+Useful endpoints after start:
 
-1. Ensure the backend API is running
-2. Run the test conversation script:
-   ```bash
-   cd testing
-   python testconversation.py
-   ```
-3. Follow the prompts and answer questions to simulate a patient consultation
+- API docs (Swagger UI): `http://localhost:8000/docs`
+- Startup status: `http://localhost:8000/startup/status`
+- Health check: `http://localhost:8000/health`
 
-## System Architecture
+### 3) Frontend Setup
 
-The system uses a multi-model pipeline to process patient interactions:
+In a separate terminal:
 
-1. **Model A (Speech-to-Text)**: Converts Kinyarwanda/English voice input to text
-2. **Model B (Language Understanding)**: Extracts symptoms and intent from patient responses
-3. **Model C (Dialogue Policy)**: Determines the next question to ask
-4. **Model D (Risk Scoring)**: Assesses urgency and severity of symptoms
-5. **Model E (Patient Guidance)**: Provides immediate support and directions
-6. **Model F (Doctor Summary)**: Generates comprehensive summaries for healthcare workers
+```bash
+cd frontend
+flutter pub get
+```
 
-Each model works together to create a seamless, supervised consultation experience that collects structured data for medical review.
+Run frontend (choose one):
+
+```bash
+flutter run -d chrome
+flutter run -d windows
+flutter run -d android
+```
+
+You can also run on:
+
+- iOS simulator/device (macOS only)
+- Android emulator
+- Physical Android/iOS device
+
+## Testing Guide
+
+Use any of the following depending on what you want to validate.
+
+### Backend Testing Alternatives
+
+1. Swagger UI (manual endpoint testing)
+
+- Start backend and open `http://localhost:8000/docs`.
+- Test endpoints interactively with request/response visibility.
+
+2. Integration script
+
+```bash
+python backend/test_new_system_integration.py
+```
+
+3. Database verification script
+
+```bash
+python testing/test_database.py
+```
+
+4. Whisper/model loading and transcription check
+
+```bash
+python backend/test_whisper.py <path_to_audio.wav>
+```
+
+5. Audio format compatibility test
+
+```bash
+python testing/test_audio_formats.py <path_to_audio_file>
+```
+
+6. Conversation CLI script (legacy/manual flow simulation)
+
+```bash
+python testing/testconversation.py
+```
+
+Note: this script targets conversation endpoints that may differ from the current router contract. Use Swagger UI first if you want the most reliable manual API validation path.
+
+7. Notebook-based testing
+
+- `backend/kaggle-new-system-test.ipynb`
+- `backend/colab-new-system-test.ipynb`
+- Model notebooks in `notebooks/` for focused experimentation per model.
+
+### Frontend Testing Alternatives
+
+1. Run on web:
+
+```bash
+cd frontend
+flutter run -d chrome
+```
+
+2. Run on Windows desktop:
+
+```bash
+cd frontend
+flutter run -d windows
+```
+
+3. Run on emulator/device:
+
+```bash
+cd frontend
+flutter run -d android
+```
+
+4. Run widget tests:
+
+```bash
+cd frontend
+flutter test
+```
+
+5. Static checks:
+
+```bash
+cd frontend
+flutter analyze
+```
+
+## Results Summary
+
+Current achieved results:
+
+- A patient can speak to the system and receive tailored follow-up questions for clarification.
+- The system provides next-step guidance without issuing a medical diagnosis.
+- The system forwards structured patient information and symptoms for doctor review.
+- Doctors can review patient cases and assign examinations or next actions.
+
+Current gap against intended objective:
+
+- A planned breathing-pattern emergency escalation feature (detect respiratory distress from speech/audio and escalate immediately) is not yet implemented.
+
+## Analysis
+
+Detailed analysis of the results and how they achieved or missed the objectives in the project proposal with the supervisor.
+
+The project achieved key functional objectives for supervised pre-consultation intake: multilingual patient interaction, iterative clarification, safe non-diagnostic guidance, and doctor-facing case summaries. These outcomes align with the objective of reducing intake friction while preserving clinician decision authority.
+
+However, one high-impact objective remains incomplete: automatic breathing/emergency detection directly from patient speech. Because this feature was not completed, emergency detection is currently dependent on existing symptom and red-flag logic rather than dedicated respiratory signal analysis. This leaves an important safety enhancement for future implementation.
+
+## Discussion
+
+A detailed discussion on the importance of the milestones and the impact of the results with the supervisor.
+
+Key milestone impact:
+
+- Voice capture and transcription enabled practical patient interaction in supported languages.
+- Clarification question flow improved symptom detail quality before clinician review.
+- Structured handoff to doctors reduced information loss between intake and consultation.
+- Doctor-side review and action assignment supports real clinical workflow continuity.
+
+Together, these milestones show that the system can function as a meaningful pre-consultation layer in hospital settings, especially where intake bottlenecks are common.
+
+## Recommendations
+
+Some recommendations to the community concerning the application of the product & Future Work with the supervisor.
+
+Recommended next steps:
+
+- Implement respiratory distress detection from speech/audio to support immediate emergency escalation.
+- Add stronger validation in real hospital pilot environments with clinician feedback loops.
+- Expand multilingual robustness and accents/dialect handling.
+- Improve monitoring metrics for triage quality, false-positive alerts, and doctor satisfaction.
+- Strengthen deployment hardening (security, privacy controls, auditability, and observability).
+
+Community application guidance:
+
+- Use the tool as supervised pre-consultation support, never as standalone diagnosis.
+- Keep clinicians in the decision loop for all medical decisions.
+- Pair technical rollout with user training for hospital staff and patient facilitators.
