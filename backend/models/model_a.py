@@ -229,9 +229,14 @@ def transcribe(audio_bytes: bytes, language_hint: Optional[str] = None) -> dict:
             f"Please split into smaller segments."
         )
 
-    # Detect language
-    print(f"Detecting language (hint: {language_hint})...")
-    resolved = _detect_language(audio, language_hint)
+    # Detect language (skip full detection when user selected a supported language - saves ~30-60s on CPU)
+    skip_detection = os.getenv("SKIP_LANG_DETECTION_WHEN_HINTED", "false").lower() == "true"
+    if skip_detection and language_hint in ("kinyarwanda", "english"):
+        print(f"Using language hint (fast mode): {language_hint}")
+        resolved = language_hint
+    else:
+        print(f"Detecting language (hint: {language_hint})...")
+        resolved = _detect_language(audio, language_hint)
     print(f"Language resolved: {resolved}")
 
     if resolved == language_hint:
