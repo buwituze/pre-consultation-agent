@@ -48,6 +48,7 @@ def load_models():
     global _kin_pipe, _eng_pipe, _models_ready, _loading_status
 
     try:
+        print(f"   DEVICE: {DEVICE} (torch.cuda.is_available={torch.cuda.is_available()})")
         _loading_status = "loading_kinyarwanda_model"
         _kin_pipe = pipeline(
             "automatic-speech-recognition",
