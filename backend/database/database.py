@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import uuid
 from typing import Optional, Dict, List, Any, Tuple
 from contextlib import contextmanager
 import psycopg2
@@ -96,11 +97,15 @@ class PatientDB:
     @staticmethod
     def create_new_patient(preferred_language: str = 'kinyarwanda', location: Optional[str] = None) -> Dict:
         """
-        Create a placeholder patient at kiosk start. Name/phone are empty until
-        collected during/finish. Placeholders must satisfy DB constraints:
+        Create a placeholder patient at kiosk start. Each visit gets a unique patient row;
+        name/phone are updated at finish when collected. Placeholders must satisfy:
         - patient_name_length: LENGTH(TRIM(full_name)) >= 2
         - patient_phone_check: phone ~ '^[0-9+\-\(\) ]+$'
+        - idx_patient_phone_name: unique (phone_number, full_name) — use unique placeholder
         """
+        unique_suffix = uuid.uuid4().hex[:12]
+        full_name = f"Pending-{unique_suffix}"
+        phone_number = "0"
         query = """
             INSERT INTO patient (full_name, phone_number, preferred_language, location)
             VALUES (%s, %s, %s, %s)
@@ -108,7 +113,7 @@ class PatientDB:
         """
         with DatabaseConnection.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, ('Pending', '0', preferred_language, location))
+                cur.execute(query, (full_name, phone_number, preferred_language, location))
                 return dict(cur.fetchone())
 
     @staticmethod

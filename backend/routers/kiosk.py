@@ -433,11 +433,17 @@ async def kiosk_finish(session_id: str, body: FinishRequest):
     print("\n💾 PERSISTING TO DATABASE...")
     
     try:
-        # 0. Update patient info
+        # 0. Update patient info (use placeholders if empty — DB requires name length >= 2, valid phone)
+        full_name = (body.patient_name or session.patient_name or "").strip()
+        phone_number = (body.patient_phone or "").strip()
+        if len(full_name) < 2:
+            full_name = "Unknown"
+        if not phone_number or not all(c in "0123456789+-() " for c in phone_number):
+            phone_number = "0"
         PatientDB.update_patient(
             patient_id=session.db_patient_id,
-            full_name=body.patient_name,
-            phone_number=body.patient_phone,
+            full_name=full_name,
+            phone_number=phone_number,
         )
         print(f"✅ Updated patient info")
         # 1. Save audio file references
