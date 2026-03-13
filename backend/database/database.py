@@ -95,6 +95,12 @@ class PatientDB:
     
     @staticmethod
     def create_new_patient(preferred_language: str = 'kinyarwanda', location: Optional[str] = None) -> Dict:
+        """
+        Create a placeholder patient at kiosk start. Name/phone are empty until
+        collected during/finish. Placeholders must satisfy DB constraints:
+        - patient_name_length: LENGTH(TRIM(full_name)) >= 2
+        - patient_phone_check: phone ~ '^[0-9+\-\(\) ]+$'
+        """
         query = """
             INSERT INTO patient (full_name, phone_number, preferred_language, location)
             VALUES (%s, %s, %s, %s)
@@ -102,7 +108,7 @@ class PatientDB:
         """
         with DatabaseConnection.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, ('', '', preferred_language, location))
+                cur.execute(query, ('Pending', '0', preferred_language, location))
                 return dict(cur.fetchone())
 
     @staticmethod
