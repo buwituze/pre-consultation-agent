@@ -26,6 +26,9 @@ LIGHT_SCHEMA = {
 }
 
 FULL_SCHEMA = {
+    "patient_name":            "",    # Extracted from conversation
+    "patient_age":             "",    # Extracted from conversation
+    "patient_gender":          "",    # Extracted from conversation
     "chief_complaint":         "",
     "duration":                "",
     "severity":                "",

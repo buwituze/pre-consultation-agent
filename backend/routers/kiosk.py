@@ -261,6 +261,22 @@ async def kiosk_audio(
         session.extraction = await asyncio.to_thread(model_b.extract, session.transcript)
         print(f"✅ Extraction successful!")
         print(f"   Extracted: {session.extraction}")
+        
+        # Extract patient info from the extraction dict and store in session attributes
+        if session.extraction.get("patient_name"):
+            session.patient_name = session.extraction["patient_name"]
+            print(f"   📝 Patient name extracted: {session.patient_name}")
+        if session.extraction.get("patient_age"):
+            # Try to convert to int if it's a number
+            age_val = session.extraction["patient_age"]
+            try:
+                session.patient_age = int(age_val) if isinstance(age_val, str) else age_val
+                print(f"   📝 Patient age extracted: {session.patient_age}")
+            except (ValueError, TypeError):
+                pass
+        if session.extraction.get("patient_gender"):
+            session.patient_gender = session.extraction["patient_gender"]
+            print(f"   📝 Patient gender extracted: {session.patient_gender}")
     except Exception as e:
         print(f"❌ Extraction error: {type(e).__name__}: {e}")
         import traceback
@@ -342,6 +358,22 @@ async def kiosk_answer(
     try:
         session.extraction = await asyncio.to_thread(model_b.extract, combined)
         print(f"✅ Extraction updated: {session.extraction}")
+        
+        # Extract patient info from the extraction dict and store in session attributes
+        if session.extraction.get("patient_name"):
+            session.patient_name = session.extraction["patient_name"]
+            print(f"   📝 Patient name extracted: {session.patient_name}")
+        if session.extraction.get("patient_age"):
+            # Try to convert to int if it's a number
+            age_val = session.extraction["patient_age"]
+            try:
+                session.patient_age = int(age_val) if isinstance(age_val, str) else age_val
+                print(f"   📝 Patient age extracted: {session.patient_age}")
+            except (ValueError, TypeError):
+                pass
+        if session.extraction.get("patient_gender"):
+            session.patient_gender = session.extraction["patient_gender"]
+            print(f"   📝 Patient gender extracted: {session.patient_gender}")
     except Exception as e:
         print(f"⚠️ Extraction update failed (continuing): {e}")
 

@@ -66,37 +66,6 @@ def get_next_question(session_id: str):
             detail="No extraction available yet. Submit audio first via POST /sessions/{id}/audio.",
         )
 
-    # Check if we need to ask patient info questions first (always first)
-    if not session.patient_name or not session.patient_age or not session.patient_gender:
-        needed_info = []
-        if not session.patient_name: needed_info.append("patient_name")
-        if not session.patient_age: needed_info.append("patient_age")  
-        if not session.patient_gender: needed_info.append("patient_gender")
-        
-        # Get patient info question using the helper (same as notebook)
-        info_id = needed_info[0]
-        info_questions_list = get_patient_info_questions(session.language)
-        
-        # Find the question matching this info_id
-        next_question = None
-        for q_dict in info_questions_list:
-            if q_dict.get("id") == info_id:
-                next_question = q_dict.get("question")
-                break
-        
-        if not next_question:
-            raise HTTPException(status_code=500, detail=f"Question not found for {info_id}")
-        
-        session.stage = SessionStage.QUESTIONING
-        return {
-            "session_id":        session.id,
-            "stage":             session.stage.value,
-            "coverage_complete": False,
-            "next_question":     next_question,
-            "question_type":     "patient_info",
-            "routing_mode":      session.routing_mode,
-        }
-
     # Determine question source based on routing mode
     if session.routing_mode == "emergency":
         # Emergency: minimal questions, move to scoring quickly
@@ -233,10 +202,6 @@ async def submit_answer(session_id: str, body: AnswerRequest):
 
     # Check if this is a patient info answer
     answer_lower = body.answer.lower()
-    if not session.patient_name and ("name" in body.question.lower() or "izina" in body.question.lower()):
-        session.patient_name = body.answer
-    elif not session.patient_gender and ("gender" in body.question.lower() or "igitsina" in body.question.lower()):
-        session.patient_gender = body.answer
     # Note: age might already be set from initial session creation
     
     session.turns.append(ConversationTurn(question=body.question, answer=body.answer))
