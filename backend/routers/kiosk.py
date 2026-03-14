@@ -374,6 +374,14 @@ async def kiosk_answer(
         if session.extraction.get("patient_gender"):
             session.patient_gender = session.extraction["patient_gender"]
             print(f"   📝 Patient gender extracted: {session.patient_gender}")
+        
+        # Preserve previously extracted patient info if Model B dropped it on re-extraction
+        if not session.extraction.get("patient_name") and session.patient_name:
+            session.extraction["patient_name"] = session.patient_name
+        if not session.extraction.get("patient_age") and session.patient_age:
+            session.extraction["patient_age"] = str(session.patient_age)
+        if not session.extraction.get("patient_gender") and session.patient_gender:
+            session.extraction["patient_gender"] = session.patient_gender
     except Exception as e:
         print(f"⚠️ Extraction update failed (continuing): {e}")
 

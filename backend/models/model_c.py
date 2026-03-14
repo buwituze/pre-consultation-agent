@@ -59,7 +59,8 @@ def select_next_question(extraction: dict, questions_asked: list[str],
     info_questions = PATIENT_INFO_QUESTIONS.get(lang, PATIENT_INFO_QUESTIONS["kinyarwanda"])
     info_fields = [q["targets"] for q in info_questions]
     for q in info_questions:
-        if not extraction.get(q["targets"]):
+        # Skip if already filled OR already asked (don't repeat even if extraction lost the value)
+        if not extraction.get(q["targets"]) and q["question"] not in questions_asked:
             return q["question"]
 
     # After patient info, proceed as before
