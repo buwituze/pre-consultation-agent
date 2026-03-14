@@ -29,9 +29,9 @@ Expected value:
 
 ## Demo And Deployment Links
 
-- Demo video: [Add demo video link here](#)
-- Deployed frontend: [Add deployed frontend link here](#)
-- Deployed backend/API: [Add deployed backend link here](#)
+- Demo video: [Add demo video link here](https://drive.google.com/drive/folders/1eRBl3uKAhTo8PucomjlGDkXwoBHeUNrZ?usp=sharing)
+- Deployed frontend: [Add deployed frontend link here](https://drive.google.com/drive/folders/1_HDb-CJvF1riBDUhP5I5dgTGcu4zviLh?usp=sharing)
+- Deployed backend/API: [Add deployed backend link here](https://boisterously-implicatory-anderson.ngrok-free.dev/docs)
 - Deployed database: [Renderr](https://dashboard.render.com/d/dpg-d6ol7qkr85hc739hdvog-a)
 
 ## Quick Setup (Backend + Frontend)
