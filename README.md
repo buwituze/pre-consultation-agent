@@ -32,6 +32,7 @@ Expected value:
 - Demo video: [Add demo video link here](#)
 - Deployed frontend: [Add deployed frontend link here](#)
 - Deployed backend/API: [Add deployed backend link here](#)
+- Deployed database: [Renderr](https://dashboard.render.com/d/dpg-d6ol7qkr85hc739hdvog-a)
 
 ## Quick Setup (Backend + Frontend)
 

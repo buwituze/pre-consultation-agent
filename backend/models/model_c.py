@@ -53,6 +53,16 @@ def select_next_question(extraction: dict, questions_asked: list[str],
     Returns:
         Question string ready to speak to the patient.
     """
+    # Always ask patient info first if missing
+    from .model_c_rules import PATIENT_INFO_QUESTIONS
+    lang = extraction.get("language", "kinyarwanda")
+    info_questions = PATIENT_INFO_QUESTIONS.get(lang, PATIENT_INFO_QUESTIONS["kinyarwanda"])
+    info_fields = [q["targets"] for q in info_questions]
+    for q in info_questions:
+        if not extraction.get(q["targets"]):
+            return q["question"]
+
+    # After patient info, proceed as before
     system_prompt = _SYSTEM
     known = [f"{k}: {v}" for k, v in extraction.items() if v]
 
