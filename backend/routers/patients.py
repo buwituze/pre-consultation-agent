@@ -8,6 +8,7 @@ GET    /patients/{patient_id}/session/{session_id} → get detailed session info
 """
 
 from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
@@ -36,7 +37,7 @@ class PatientListItem(BaseModel):
     residency: Optional[str]
     priority: Optional[str]
     session_id: Optional[int]
-    start_time: Optional[str]
+    start_time: Optional[datetime]
     queue_number: Optional[int]
     queue_status: Optional[str]
 
@@ -47,12 +48,12 @@ class PatientDetail(BaseModel):
     phone_number: str
     preferred_language: str
     location: Optional[str]
-    created_at: str
+    created_at: Optional[datetime]
 
 
 class SessionSummary(BaseModel):
     session_id: int
-    start_time: str
+    start_time: Optional[datetime]
     predicted_condition: Optional[str]
     risk_level: Optional[str]
     prescribed: bool
@@ -61,8 +62,8 @@ class SessionSummary(BaseModel):
 class SessionDetail(BaseModel):
     session_id: int
     patient_id: int
-    start_time: str
-    end_time: Optional[str]
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
     status: str
     detected_language: Optional[str]
     full_transcript: Optional[str]
@@ -161,8 +162,8 @@ def get_session_details(
     return SessionDetail(
         session_id=session['session_id'],
         patient_id=session['patient_id'],
-        start_time=str(session['start_time']),
-        end_time=str(session['end_time']) if session.get('end_time') else None,
+        start_time=session['start_time'],
+        end_time=session.get('end_time'),
         status=session['status'],
         detected_language=session.get('detected_language'),
         full_transcript=session.get('full_transcript'),

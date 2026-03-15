@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 
 from models import model_a
 from routers import sessions, transcription, dialogue, triage, kiosk, doctor
-from routers import auth, facilities, rooms, queue, patients
+from routers import auth, facilities, rooms, queue, patients, doctors
 from database.database import DatabaseConnection
 
 
@@ -117,11 +117,12 @@ app.include_router(triage.router)
 app.include_router(kiosk.router)
 app.include_router(doctor.router)
 
-# Management APIs — facilities, rooms, queue, patients
+# Management APIs — facilities, rooms, queue, patients, doctors
 app.include_router(facilities.router)
 app.include_router(rooms.router)
 app.include_router(queue.router)
 app.include_router(patients.router)
+app.include_router(doctors.router)
 
 
 @app.get("/health")

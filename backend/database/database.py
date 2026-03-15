@@ -323,14 +323,15 @@ class HealthcareWorkerDB:
 class UserDB:
     @staticmethod
     def create_user(email: str, password_hash: str, full_name: str, role: str,
-                   facility_id: Optional[int] = None) -> Dict:
+                   facility_id: Optional[int] = None, specialty: Optional[str] = None) -> Dict:
         query = """
-            INSERT INTO users (email, password_hash, full_name, role, facility_id)
-            VALUES (%s, %s, %s, %s, %s) RETURNING user_id, email, full_name, role, facility_id, is_active, created_at
+            INSERT INTO users (email, password_hash, full_name, role, facility_id, specialty)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING user_id, email, full_name, role, facility_id, specialty, is_active, created_at
         """
         with DatabaseConnection.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (email, password_hash, full_name, role, facility_id))
+                cur.execute(query, (email, password_hash, full_name, role, facility_id, specialty))
                 return dict(cur.fetchone())
     
     @staticmethod
@@ -345,7 +346,7 @@ class UserDB:
     
     @staticmethod
     def update_user(user_id: int, **kwargs) -> int:
-        allowed_fields = {'email', 'password_hash', 'full_name', 'is_active', 'facility_id'}
+        allowed_fields = {'email', 'password_hash', 'full_name', 'is_active', 'facility_id', 'specialty'}
         updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
         if not updates:
             return 0
@@ -356,8 +357,24 @@ class UserDB:
     
     @staticmethod
     def get_users_by_facility(facility_id: int) -> List[Dict]:
-        query = "SELECT user_id, email, full_name, role, is_active, created_at FROM users WHERE facility_id = %s"
+        query = "SELECT user_id, email, full_name, role, specialty, facility_id, is_active, created_at FROM users WHERE facility_id = %s"
         return DatabaseConnection.execute_query(query, (facility_id,))
+
+    @staticmethod
+    def get_doctors_by_facility(facility_id: int) -> List[Dict]:
+        query = """
+            SELECT user_id, email, full_name, role, specialty, facility_id, is_active, created_at
+            FROM users WHERE facility_id = %s AND role = 'doctor' ORDER BY full_name
+        """
+        return DatabaseConnection.execute_query(query, (facility_id,))
+
+    @staticmethod
+    def get_all_doctors() -> List[Dict]:
+        query = """
+            SELECT user_id, email, full_name, role, specialty, facility_id, is_active, created_at
+            FROM users WHERE role = 'doctor' ORDER BY facility_id, full_name
+        """
+        return DatabaseConnection.execute_query(query)
 
 
 class FacilityDB:
