@@ -33,7 +33,6 @@ class FacilityCreate(BaseModel):
     primary_email: EmailStr
     primary_phone: str
     location: str
-    admin_user_id: Optional[int] = None
 
 
 class FacilityUpdate(BaseModel):
@@ -80,8 +79,7 @@ def create_facility(
         name=facility.name,
         primary_email=facility.primary_email,
         primary_phone=facility.primary_phone,
-        location=facility.location,
-        admin_user_id=facility.admin_user_id
+        location=facility.location
     )
     return new_facility
 

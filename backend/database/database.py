@@ -363,14 +363,14 @@ class UserDB:
 class FacilityDB:
     @staticmethod
     def create_facility(name: str, primary_email: str, primary_phone: str,
-                       location: str, admin_user_id: Optional[int] = None) -> Dict:
+                       location: str) -> Dict:
         query = """
-            INSERT INTO facility (name, primary_email, primary_phone, location, admin_user_id)
-            VALUES (%s, %s, %s, %s, %s) RETURNING *
+            INSERT INTO facility (name, primary_email, primary_phone, location)
+            VALUES (%s, %s, %s, %s) RETURNING *
         """
         with DatabaseConnection.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (name, primary_email, primary_phone, location, admin_user_id))
+                cur.execute(query, (name, primary_email, primary_phone, location))
                 return dict(cur.fetchone())
     
     @staticmethod
