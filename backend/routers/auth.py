@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr
 import bcrypt
 import jwt
 
-from database.database import UserDB, DatabaseConnection
+from database.database import UserDB, FacilityDB, DatabaseConnection
 
 # Initialize database connection pool
 try:
@@ -201,7 +201,28 @@ def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
         )
-    
+
+    # Validate facility_id based on role
+    if request.role == 'platform_admin':
+        if request.facility_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="platform_admin must not be assigned to a facility"
+            )
+    else:
+        # hospital_admin and doctor must belong to a facility
+        if request.facility_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{request.role} must be assigned to a facility (facility_id is required)"
+            )
+        facility = FacilityDB.get_facility(request.facility_id)
+        if not facility:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Facility with id {request.facility_id} not found"
+            )
+
     # Hash password and create user
     hashed_password = hash_password(request.password)
     user = UserDB.create_user(
