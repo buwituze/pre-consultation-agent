@@ -35,7 +35,7 @@ from routing import assign_routing
 from models import model_a, model_b, model_c, model_d, model_e, model_f
 from database.database import (
     PatientDB, SessionDB, ConversationDB, SymptomDB, PredictionDB,
-    AudioDB, QueueDB, ExtendedSessionDB, DatabaseConnection
+    AudioDB, QueueDB, ExtendedSessionDB, DatabaseConnection, FacilityDB
 )
 
 # Initialize database connection pool
@@ -144,12 +144,15 @@ def kiosk_start(body: StartRequest):
     print("🚀 NEW SESSION STARTED")
     print(f"Language selected: {body.language}")
     print(f"Patient Age: {body.patient_age}")
-    print(f"Facility ID: {body.facility_id}")
+    resolved_facility_id = body.facility_id
     
     # Normalize language to lowercase for consistency
     normalized_language = body.language.lower() if body.language else "unknown"
     
     try:
+        resolved_facility_id = FacilityDB.resolve_facility_id(body.facility_id)
+        print(f"Facility ID: {body.facility_id} -> using {resolved_facility_id}")
+
         # Create or get patient in database
         patient = PatientDB.create_new_patient(
             preferred_language=normalized_language if normalized_language != "unknown" else "kinyarwanda",
@@ -184,7 +187,7 @@ def kiosk_start(body: StartRequest):
     # Store DB IDs in memory session for later
     session.db_session_id = db_session['session_id']
     session.db_patient_id = patient['patient_id']
-    session.facility_id = body.facility_id
+    session.facility_id = resolved_facility_id
     
     greeting = _greeting(normalized_language)
     
@@ -477,7 +480,7 @@ async def kiosk_finish(
     print("\n💾 PERSISTING TO DATABASE...")
 
     # Keep a safe default so finish can still respond if DB persistence fails.
-    queue_entry = {"queue_number": 0}
+    queue_entry = {"queue_number": routing.queue_number}
 
     try:
         # 0. Update patient info (use placeholders if empty — DB requires name length >= 2, valid phone)
@@ -566,7 +569,27 @@ async def kiosk_finish(
         )
         print(f"✅ Saved prediction")
         
-        # 5. Save complete session data
+        # 5. Create queue entry in the routed destination queue.
+        queue_entry = QueueDB.create_queue_entry(
+            session_id=session.db_session_id,
+            patient_id=session.db_patient_id,
+            facility_id=session.facility_id,
+            queue_name=routing.queue,
+            department=routing.department,
+            location_hint=routing.location_hint,
+        )
+        print(f"✅ Created queue entry #{queue_entry['queue_number']}")
+
+        # 6. Attach routing destination and queue details to doctor-facing info.
+        session.doctor_brief["routing_assignment"] = {
+            "department": routing.department,
+            "queue": routing.queue,
+            "queue_number": queue_entry.get("queue_number", routing.queue_number),
+            "location_hint": routing.location_hint,
+            "urgency_label": routing.urgency_label,
+        }
+
+        # 7. Save complete session data.
         ExtendedSessionDB.save_complete_session(
             session_id=session.db_session_id,
             extraction_data=session.extraction,
@@ -578,14 +601,6 @@ async def kiosk_finish(
             detected_language=session.language
         )
         print(f"✅ Saved complete session data")
-        
-        # 6. Create queue entry
-        queue_entry = QueueDB.create_queue_entry(
-            session_id=session.db_session_id,
-            patient_id=session.db_patient_id,
-            facility_id=session.facility_id
-        )
-        print(f"✅ Created queue entry #{queue_entry['queue_number']}")
         
         print("💾 DATABASE PERSISTENCE COMPLETE")
         

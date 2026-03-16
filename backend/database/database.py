@@ -407,6 +407,37 @@ class FacilityDB:
     def get_all_facilities() -> List[Dict]:
         query = "SELECT * FROM v_facility_stats ORDER BY name"
         return DatabaseConnection.execute_query(query)
+
+    @staticmethod
+    def get_active_facility() -> Optional[Dict]:
+        query = "SELECT * FROM facility WHERE is_active = TRUE ORDER BY facility_id LIMIT 1"
+        return DatabaseConnection.execute_query(query, fetch_one=True)
+
+    @staticmethod
+    def resolve_facility_id(preferred_facility_id: Optional[int] = None) -> int:
+        """
+        Resolve to a valid facility id.
+        Priority:
+        1) preferred facility if it exists
+        2) first active facility
+        3) auto-create a default facility
+        """
+        if preferred_facility_id:
+            facility = FacilityDB.get_facility(preferred_facility_id)
+            if facility:
+                return preferred_facility_id
+
+        active = FacilityDB.get_active_facility()
+        if active:
+            return int(active['facility_id'])
+
+        created = FacilityDB.create_facility(
+            name="Default Facility",
+            primary_email="facility@example.com",
+            primary_phone="+250000000000",
+            location="Main Campus"
+        )
+        return int(created['facility_id'])
     
     @staticmethod
     def update_facility(facility_id: int, **kwargs) -> int:
@@ -473,23 +504,50 @@ class RoomDB:
 class QueueDB:
     @staticmethod
     def create_queue_entry(session_id: int, patient_id: int, facility_id: int,
+                          queue_name: str = 'general', department: Optional[str] = None,
+                          location_hint: Optional[str] = None,
                           required_exams: Optional[List[str]] = None) -> Dict:
-        # Get next queue number for this facility
+        # Ensure facility exists to satisfy FK constraints.
+        resolved_facility_id = FacilityDB.resolve_facility_id(facility_id)
+
+        # Get next queue number for this facility and destination queue.
         with DatabaseConnection.get_connection() as conn:
             with conn.cursor() as cur:
+                # Backward-compatible schema updates for existing deployments.
+                cur.execute("ALTER TABLE examination_queue ADD COLUMN IF NOT EXISTS queue_name VARCHAR(100)")
+                cur.execute("ALTER TABLE examination_queue ADD COLUMN IF NOT EXISTS department VARCHAR(100)")
+                cur.execute("ALTER TABLE examination_queue ADD COLUMN IF NOT EXISTS location_hint VARCHAR(255)")
+
                 cur.execute("""
                     SELECT COALESCE(MAX(queue_number), 0) + 1 AS queue_number
                     FROM examination_queue 
-                    WHERE facility_id = %s AND DATE(created_at) = CURRENT_DATE
-                """, (facility_id,))
+                    WHERE facility_id = %s
+                      AND COALESCE(queue_name, 'general') = %s
+                      AND DATE(created_at) = CURRENT_DATE
+                """, (resolved_facility_id, queue_name))
                 row = cur.fetchone()
                 queue_number = row['queue_number']
                 
                 query = """
-                    INSERT INTO examination_queue (session_id, patient_id, facility_id, queue_number, required_exams)
-                    VALUES (%s, %s, %s, %s, %s) RETURNING *
+                    INSERT INTO examination_queue (
+                        session_id, patient_id, facility_id, queue_name, department,
+                        location_hint, queue_number, required_exams
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *
                 """
-                cur.execute(query, (session_id, patient_id, facility_id, queue_number, required_exams))
+                cur.execute(
+                    query,
+                    (
+                        session_id,
+                        patient_id,
+                        resolved_facility_id,
+                        queue_name,
+                        department,
+                        location_hint,
+                        queue_number,
+                        required_exams,
+                    ),
+                )
                 return dict(cur.fetchone())
     
     @staticmethod

@@ -333,6 +333,9 @@ CREATE TABLE examination_queue (
     session_id INTEGER NOT NULL UNIQUE,
     patient_id INTEGER NOT NULL,
     facility_id INTEGER NOT NULL,
+    queue_name VARCHAR(100),
+    department VARCHAR(100),
+    location_hint VARCHAR(255),
     assigned_doctor_id INTEGER,
     assigned_room_id INTEGER,
     queue_number INTEGER NOT NULL,
@@ -422,6 +425,7 @@ ORDER BY s.start_time DESC;
 CREATE VIEW v_queue_overview AS
 SELECT 
     q.queue_id, q.queue_number, q.queue_status,
+    q.queue_name, q.department, q.location_hint,
     p.full_name AS patient_name, p.phone_number,
     pred.risk_level, pred.predicted_condition,
     hw.full_name AS doctor_name,

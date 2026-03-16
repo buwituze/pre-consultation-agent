@@ -43,6 +43,9 @@ class QueueEntryResponse(BaseModel):
     queue_id: int
     queue_number: int
     queue_status: str
+    queue_name: Optional[str] = None
+    department: Optional[str] = None
+    location_hint: Optional[str] = None
     patient_name: str
     phone_number: Optional[str]
     risk_level: Optional[str]
