@@ -478,11 +478,12 @@ class QueueDB:
         with DatabaseConnection.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT COALESCE(MAX(queue_number), 0) + 1 
+                    SELECT COALESCE(MAX(queue_number), 0) + 1 AS queue_number
                     FROM examination_queue 
                     WHERE facility_id = %s AND DATE(created_at) = CURRENT_DATE
                 """, (facility_id,))
-                queue_number = cur.fetchone()['coalesce']
+                row = cur.fetchone()
+                queue_number = row['queue_number']
                 
                 query = """
                     INSERT INTO examination_queue (session_id, patient_id, facility_id, queue_number, required_exams)
