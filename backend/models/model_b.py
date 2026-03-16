@@ -29,6 +29,8 @@ FULL_SCHEMA = {
     "patient_name":            "",    # Extracted from conversation
     "patient_age":             "",    # Extracted from conversation
     "patient_gender":          "",    # Extracted from conversation
+    "patient_phone":           "",    # Extracted from conversation
+    "patient_location":        "",    # Extracted from conversation
     "chief_complaint":         "",
     "duration":                "",
     "severity":                "",
@@ -245,6 +247,7 @@ Rules:
 - Be specific about duration ("started yesterday" not just "recent")
 - Severity: Use exact numbers if given, or "mild"/"moderate"/"severe"
 - Associated symptoms: List separately, be specific
+- If patient phone number or home location is explicitly stated, capture them in patient_phone and patient_location
 
 Red flags (mark true if ANY present):
 - Difficulty breathing, chest pain, pressure
@@ -358,7 +361,8 @@ def _validate_full(raw: dict) -> dict:
     d = {k: raw.get(k, v) for k, v in FULL_SCHEMA.items()}
     
     # Ensure string fields are strings
-    for key in ["chief_complaint", "duration", "severity", "body_part", 
+    for key in ["patient_name", "patient_age", "patient_gender", "patient_phone", "patient_location",
+                "chief_complaint", "duration", "severity", "body_part", 
                 "progression", "triggers", "additional_observations"]:
         if not isinstance(d[key], str):
             d[key] = str(d[key]) if d[key] else ""

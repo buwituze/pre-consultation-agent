@@ -52,7 +52,9 @@ class Session:
     severity_estimate: int                  = 0           # 1-10 scale
     red_flags_detected: bool                = False
     patient_name:    str                    = ""          # Asked during conversation
+    patient_phone:   str                    = ""          # Asked during conversation
     patient_gender:  str                    = ""          # Asked during conversation
+    patient_location: str                   = ""          # Asked during conversation
     api_calls_count: int                    = 0           # Track API usage
     cost_estimate:   float                  = 0.0         # Estimated cost in USD
 

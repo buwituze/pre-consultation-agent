@@ -6,7 +6,14 @@ No ML required. Rules are explicit, auditable, and easy to update.
 """
 
 from dataclasses import dataclass
+import json
+import os
+import re
 from typing import Optional
+from google import genai
+
+
+_gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
 
 
 @dataclass
@@ -38,6 +45,7 @@ _DEPARTMENT_RULES: dict[tuple, str] = {
     ("MEDIUM", "mental health-related complaint"):      "Mental Health",
     ("MEDIUM", "obstetric or gynaecological complaint"):"Gynaecology",
     ("MEDIUM", "paediatric-related complaint"):         "Paediatrics",
+    ("MEDIUM", "ophthalmology-related complaint"):      "Ophthalmology",
     ("MEDIUM", "unclear or unclassifiable complaint"):  "General Medicine",
 
     # LOW by issue category (same mapping, different waiting area)
@@ -52,6 +60,7 @@ _DEPARTMENT_RULES: dict[tuple, str] = {
     ("LOW",    "mental health-related complaint"):      "Mental Health",
     ("LOW",    "obstetric or gynaecological complaint"):"Gynaecology",
     ("LOW",    "paediatric-related complaint"):         "Paediatrics",
+    ("LOW",    "ophthalmology-related complaint"):      "Ophthalmology",
     ("LOW",    "unclear or unclassifiable complaint"):  "General Medicine",
 }
 
@@ -66,6 +75,7 @@ _DEPARTMENT_CONFIG: dict[str, dict] = {
     "Mental Health":  {"queue": "mh",            "location": "Waiting Area F — Mental Health"},
     "Gynaecology":    {"queue": "gynae",         "location": "Waiting Area G — Gynaecology"},
     "Paediatrics":    {"queue": "paediatrics",   "location": "Waiting Area H — Paediatrics"},
+    "Ophthalmology":  {"queue": "ophthalmology", "location": "Waiting Area I — Ophthalmology"},
 }
 
 _URGENCY_LABELS = {
@@ -97,7 +107,98 @@ def _next_queue_number(queue_name: str) -> int:
     return _queue_counters[queue_name]
 
 
-def assign_routing(priority: str, suspected_issue: str) -> RoutingDecision:
+def _sanitize_department(department: Optional[str]) -> str:
+    if not department:
+        return "General Medicine"
+    return department if department in _DEPARTMENT_CONFIG else "General Medicine"
+
+
+def _parse_json_payload(raw: str) -> dict:
+    cleaned = raw.strip()
+    cleaned = re.sub(r"```(?:json)?\s*", "", cleaned).rstrip("`")
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON payload found")
+        return json.loads(match.group(0))
+
+
+def suggest_unclear_issue_routing(
+    extraction: dict,
+    questions_asked: list[str],
+    patient_answers: list[str],
+    language: str,
+) -> Optional[dict]:
+    """
+    For unclear issue labels, ask Gemini for a best-fit department and issue label.
+    Returns None when suggestion is unavailable.
+    """
+    if _gemini_client is None:
+        return None
+
+    conversation = "\n".join(
+        f"Q: {q}\nA: {a}" for q, a in zip(questions_asked, patient_answers)
+    ) or "(no follow-up conversation)"
+    allowed_departments = list(_DEPARTMENT_CONFIG.keys())
+    departments_text = "\n".join(f"- {d}" for d in allowed_departments)
+
+    prompt = f"""You are a clinical routing assistant.
+The current triage issue label is unclear. Choose the best destination department and an improved issue label.
+
+Rules:
+- Use only these department values:
+{departments_text}
+- Keep issue label short and specific (example: ophthalmology-related complaint).
+- Return strict JSON only.
+
+Patient language: {language}
+Structured extraction:
+{json.dumps(extraction, ensure_ascii=False, indent=2)}
+
+Conversation:
+{conversation}
+
+Output schema:
+{{
+  "department": "<department from list>",
+  "suspected_issue": "<short issue label>",
+  "confidence": 0.0,
+  "reason": "<short reason>"
+}}"""
+
+    try:
+        response = _gemini_client.models.generate_content(
+            model="gemini-3.1-flash-lite-preview",
+            contents=prompt,
+            config={
+                "temperature": 0.0,
+                "max_output_tokens": 250,
+                "response_mime_type": "application/json",
+                "thinking_config": {"thinking_budget": 0},
+            },
+        )
+        parsed = _parse_json_payload(response.text)
+    except Exception:
+        return None
+
+    department = _sanitize_department(str(parsed.get("department", "")).strip())
+    suspected_issue = str(parsed.get("suspected_issue", "")).strip() or "general or systemic complaint"
+    try:
+        confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
+    except (TypeError, ValueError):
+        confidence = 0.0
+
+    return {
+        "department": department,
+        "suspected_issue": suspected_issue,
+        "confidence": round(confidence, 2),
+        "reason": str(parsed.get("reason", "")).strip(),
+    }
+
+
+def assign_routing(priority: str, suspected_issue: str, department_override: Optional[str] = None) -> RoutingDecision:
     """
     Assign a department, queue, and position to a patient.
 
@@ -108,7 +209,7 @@ def assign_routing(priority: str, suspected_issue: str) -> RoutingDecision:
     Returns:
         RoutingDecision with all routing details.
     """
-    department = _resolve_department(priority, suspected_issue)
+    department = _sanitize_department(department_override) if department_override else _resolve_department(priority, suspected_issue)
     config     = _DEPARTMENT_CONFIG.get(department, _DEPARTMENT_CONFIG["General Medicine"])
     queue_name = config["queue"]
     number     = _next_queue_number(queue_name)

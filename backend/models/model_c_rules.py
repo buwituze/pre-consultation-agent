@@ -44,6 +44,20 @@ PATIENT_INFO_QUESTIONS = {
             "targets": "patient_gender",
             "priority": 3,
             "required": True
+        },
+        {
+            "id": "patient_phone",
+            "question": "Nimero ya telefone yanyu ni iyihe?",
+            "targets": "patient_phone",
+            "priority": 4,
+            "required": True
+        },
+        {
+            "id": "patient_location",
+            "question": "Mutuye hehe cyangwa muri aka gace akahe?",
+            "targets": "patient_location",
+            "priority": 5,
+            "required": True
         }
     ],
     "english": [
@@ -66,6 +80,20 @@ PATIENT_INFO_QUESTIONS = {
             "question": "What is your gender? Male or female?",
             "targets": "patient_gender",
             "priority": 3,
+            "required": True
+        },
+        {
+            "id": "patient_phone",
+            "question": "What is your phone number?",
+            "targets": "patient_phone",
+            "priority": 4,
+            "required": True
+        },
+        {
+            "id": "patient_location",
+            "question": "Where do you live?",
+            "targets": "patient_location",
+            "priority": 5,
             "required": True
         }
     ]

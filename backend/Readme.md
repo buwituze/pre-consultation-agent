@@ -31,7 +31,24 @@ DB_PORT=5432
 DB_NAME=pre_consultation_db
 DB_USER=postgres
 DB_PASSWORD=your_password
+
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your_smtp_username
+SMTP_PASSWORD=your_smtp_password
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
+SMTP_FROM_EMAIL=operations@example.com
+SMTP_FROM_NAME=Hospital Operations
+PUBLIC_API_BASE_URL=http://localhost:8000
+DOCTOR_ASSIGN_CONFIRMATION_TTL_HOURS=24
 ```
+
+Email behavior:
+
+- After `/auth/register`, the newly created user receives an email with username and temporary password.
+- After hospital admins add a doctor via `/doctors`, the doctor receives the same credentials email.
+- When platform admins add a doctor via `/doctors`, the doctor is not created immediately. A confirmation email is sent to the facility primary email and hospital admin email(s); creation only happens after confirmation.
 
 ### 3. Dependencies
 

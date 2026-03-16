@@ -31,8 +31,9 @@ from pydantic import BaseModel
 from typing import Optional
 
 from session import get_session, create_session, SessionStage, ConversationTurn
-from routing import assign_routing
+from routing import assign_routing, suggest_unclear_issue_routing
 from models import model_a, model_b, model_c, model_d, model_e, model_f
+from models.model_c_rules import PATIENT_INFO_QUESTIONS
 from database.database import (
     PatientDB, SessionDB, ConversationDB, SymptomDB, PredictionDB,
     AudioDB, QueueDB, ExtendedSessionDB, DatabaseConnection, FacilityDB
@@ -48,7 +49,7 @@ except:
 AUDIO_DIR = Path(os.getenv("AUDIO_STORAGE_DIR", "data/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
-MAX_TURNS = int(os.getenv("MAX_TURNS", 6))
+MAX_TURNS = int(os.getenv("MAX_TURNS", 8))
 
 router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 
@@ -80,6 +81,7 @@ class QuestionResponse(BaseModel):
 class FinishRequest(BaseModel):
     patient_name:      str = ""
     patient_phone:     str = ""
+    patient_location:  str = ""
 class FinishResponse(BaseModel):
     session_id:      str
     patient_message: str
@@ -120,6 +122,66 @@ def _save_audio_file(session_id: str, audio_bytes: bytes, sequence: int, speaker
         f.write(audio_bytes)
     
     return str(file_path)
+
+
+def _normalize_text(value: str) -> str:
+    return " ".join((value or "").split()).strip()
+
+
+def _resolve_patient_info_target(question: str) -> Optional[str]:
+    normalized_question = _normalize_text(question).lower()
+    for language_questions in PATIENT_INFO_QUESTIONS.values():
+        for q in language_questions:
+            if _normalize_text(q.get("question", "")).lower() == normalized_question:
+                return q.get("targets")
+    return None
+
+
+def _capture_patient_info_from_answer(session, question: str, answer: str) -> None:
+    target = _resolve_patient_info_target(question)
+    if not target:
+        return
+
+    clean_answer = _normalize_text(answer)
+    if not clean_answer:
+        return
+
+    if target == "patient_name":
+        session.patient_name = clean_answer
+        session.extraction["patient_name"] = clean_answer
+    elif target == "patient_age":
+        session.extraction["patient_age"] = clean_answer
+        try:
+            session.patient_age = int(clean_answer)
+        except (TypeError, ValueError):
+            pass
+    elif target == "patient_gender":
+        session.patient_gender = clean_answer
+        session.extraction["patient_gender"] = clean_answer
+    elif target == "patient_phone":
+        session.patient_phone = clean_answer
+        session.extraction["patient_phone"] = clean_answer
+    elif target == "patient_location":
+        session.patient_location = clean_answer
+        session.extraction["patient_location"] = clean_answer
+
+
+def _build_full_transcript(session) -> str:
+    lines = []
+
+    initial = _normalize_text(session.transcript)
+    if initial:
+        lines.append(f"Patient: {initial}")
+
+    for turn in session.turns:
+        q = _normalize_text(turn.question)
+        a = _normalize_text(turn.answer)
+        if q:
+            lines.append(f"Assistant: {q}")
+        if a:
+            lines.append(f"Patient: {a}")
+
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +250,7 @@ def kiosk_start(body: StartRequest):
     session.db_session_id = db_session['session_id']
     session.db_patient_id = patient['patient_id']
     session.facility_id = resolved_facility_id
+    session.patient_location = (body.patient_location or "").strip()
     
     greeting = _greeting(normalized_language)
     
@@ -280,6 +343,12 @@ async def kiosk_audio(
         if session.extraction.get("patient_gender"):
             session.patient_gender = session.extraction["patient_gender"]
             print(f"   📝 Patient gender extracted: {session.patient_gender}")
+        if session.extraction.get("patient_phone"):
+            session.patient_phone = session.extraction["patient_phone"]
+            print(f"   📝 Patient phone extracted: {session.patient_phone}")
+        if session.extraction.get("patient_location"):
+            session.patient_location = session.extraction["patient_location"]
+            print(f"   📝 Patient location extracted: {session.patient_location}")
     except Exception as e:
         print(f"❌ Extraction error: {type(e).__name__}: {e}")
         import traceback
@@ -302,6 +371,7 @@ async def kiosk_audio(
         question          = question,
         coverage_complete = False,
         patient_name      = session.patient_name,
+        patient_phone     = session.patient_phone,
     )
 
 
@@ -354,12 +424,22 @@ async def kiosk_answer(
         raise HTTPException(status_code=500, detail=f"Answer transcription failed: {e}")
 
     session.turns.append(ConversationTurn(question=question, answer=answer))
+    _capture_patient_info_from_answer(session, question, answer)
     print(f"Turn #{len(session.turns)} recorded")
 
     print("\n🔄 Running Model B (Updating extraction)...")
-    combined = session.transcript + " " + " ".join(session.patient_answers)
     try:
-        session.extraction = await asyncio.to_thread(model_b.extract, combined)
+        conversation_history = [
+            {"question": t.question, "answer": t.answer}
+            for t in session.turns
+        ]
+        target_language = session.language if session.language in {"kinyarwanda", "english"} else "kinyarwanda"
+        session.extraction = await asyncio.to_thread(
+            model_b.extract_full,
+            session.transcript,
+            conversation_history=conversation_history,
+            target_language=target_language,
+        )
         print(f"✅ Extraction updated: {session.extraction}")
         
         # Extract patient info from the extraction dict and store in session attributes
@@ -377,6 +457,12 @@ async def kiosk_answer(
         if session.extraction.get("patient_gender"):
             session.patient_gender = session.extraction["patient_gender"]
             print(f"   📝 Patient gender extracted: {session.patient_gender}")
+        if session.extraction.get("patient_phone"):
+            session.patient_phone = session.extraction["patient_phone"]
+            print(f"   📝 Patient phone extracted: {session.patient_phone}")
+        if session.extraction.get("patient_location"):
+            session.patient_location = session.extraction["patient_location"]
+            print(f"   📝 Patient location extracted: {session.patient_location}")
         
         # Preserve previously extracted patient info if Model B dropped it on re-extraction
         if not session.extraction.get("patient_name") and session.patient_name:
@@ -385,6 +471,10 @@ async def kiosk_answer(
             session.extraction["patient_age"] = str(session.patient_age)
         if not session.extraction.get("patient_gender") and session.patient_gender:
             session.extraction["patient_gender"] = session.patient_gender
+        if not session.extraction.get("patient_phone") and session.patient_phone:
+            session.extraction["patient_phone"] = session.patient_phone
+        if not session.extraction.get("patient_location") and session.patient_location:
+            session.extraction["patient_location"] = session.patient_location
     except Exception as e:
         print(f"⚠️ Extraction update failed (continuing): {e}")
 
@@ -393,7 +483,13 @@ async def kiosk_answer(
         session.stage = SessionStage.SCORING
         print(f"✅ Coverage complete! ({len(session.turns)} turns completed)")
         print("="*80 + "\n")
-        return QuestionResponse(session_id=session.id, question="", coverage_complete=True, patient_name=session.patient_name)
+        return QuestionResponse(
+            session_id=session.id,
+            question="",
+            coverage_complete=True,
+            patient_name=session.patient_name,
+            patient_phone=session.patient_phone,
+        )
 
     print(f"📊 Coverage not yet complete ({len(session.turns)}/{MAX_TURNS} turns)")
     next_q = model_c.select_next_question(
@@ -404,7 +500,13 @@ async def kiosk_answer(
     print(f"✅ Next question generated!")
     print(f"💬 ASSISTANT ASKS: '{next_q}'")
     print("="*80 + "\n")
-    return QuestionResponse(session_id=session.id, question=next_q, coverage_complete=False, patient_name=session.patient_name)
+    return QuestionResponse(
+        session_id=session.id,
+        question=next_q,
+        coverage_complete=False,
+        patient_name=session.patient_name,
+        patient_phone=session.patient_phone,
+    )
 
 
 @router.post("/{session_id}/finish", response_model=FinishResponse)
@@ -434,15 +536,36 @@ async def kiosk_finish(
     if session.stage != SessionStage.SCORING:
         raise HTTPException(status_code=409, detail="Session is not ready to finish.")
     body = body or FinishRequest()
+    full_transcript = _build_full_transcript(session)
 
     print("\n🔄 Running Model D (Risk Scoring)...")
     session.score = await asyncio.to_thread(model_d.score, session.extraction, age=session.patient_age)
     print(f"✅ Score: {session.score}")
 
+    routing_override_department = None
+    suspected_issue = str(session.score.get("suspected_issue", "")).strip().lower()
+    if session.score.get("priority") != "HIGH" and suspected_issue == "unclear or unclassifiable complaint":
+        print("\n🔄 Running unclear-issue routing fallback...")
+        fallback = await asyncio.to_thread(
+            suggest_unclear_issue_routing,
+            extraction=session.extraction,
+            questions_asked=session.questions_asked,
+            patient_answers=session.patient_answers,
+            language=session.language,
+        )
+        if fallback:
+            routing_override_department = fallback.get("department")
+            session.score["suspected_issue"] = fallback.get("suspected_issue", session.score["suspected_issue"])
+            session.score["routing_fallback"] = fallback
+            print(f"✅ Fallback selected: issue={session.score['suspected_issue']}, department={routing_override_department}")
+        else:
+            print("ℹ️ Fallback unavailable; using default routing")
+
     print("\n🔄 Assigning routing...")
     routing = assign_routing(
         priority        = session.score["priority"],
         suspected_issue = session.score["suspected_issue"],
+        department_override=routing_override_department,
     )
     print(f"✅ Routing: {routing.department}, Queue: {routing.queue}")
 
@@ -465,7 +588,7 @@ async def kiosk_finish(
         score           = session.score,
         questions_asked = session.questions_asked,
         patient_answers = session.patient_answers,
-        transcript      = session.transcript,
+        transcript      = full_transcript,
         language        = session.language,
         patient_age     = session.patient_age,
     )
@@ -485,15 +608,21 @@ async def kiosk_finish(
     try:
         # 0. Update patient info (use placeholders if empty — DB requires name length >= 2, valid phone)
         full_name = (body.patient_name or session.patient_name or "").strip()
-        phone_number = (body.patient_phone or "").strip()
+        phone_number = (body.patient_phone or session.patient_phone or session.extraction.get("patient_phone") or "").strip()
+        location_value = (body.patient_location or session.patient_location or session.extraction.get("patient_location") or "").strip() or None
         if len(full_name) < 2:
             full_name = "Unknown"
-        if not phone_number or not all(c in "0123456789+-() " for c in phone_number):
+        phone_number = "".join(c for c in phone_number if c in "0123456789+-() ").strip()
+        if not phone_number:
             phone_number = "0"
+        session.patient_phone = phone_number
+        if location_value:
+            session.patient_location = location_value
         PatientDB.update_patient(
             patient_id=session.db_patient_id,
             full_name=full_name,
             phone_number=phone_number,
+            location=location_value,
         )
         print(f"✅ Updated patient info")
         # 1. Save audio file references
@@ -596,7 +725,7 @@ async def kiosk_finish(
             score_data=session.score,
             patient_message=session.patient_message,
             doctor_brief=session.doctor_brief,
-            full_transcript=session.transcript,
+            full_transcript=full_transcript,
             transcript_confidence=session.transcript_conf,
             detected_language=session.language
         )

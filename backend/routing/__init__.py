@@ -14,6 +14,7 @@ from routing.conversation_router import (
 
 from routing.queue_routing import (
     assign_routing,
+    suggest_unclear_issue_routing,
     get_queue_lengths,
     reset_queues,
     RoutingDecision
@@ -28,6 +29,7 @@ __all__ = [
     "get_routing_statistics",
     "ConversationMode",
     "assign_routing",
+    "suggest_unclear_issue_routing",
     "get_queue_lengths",
     "reset_queues",
     "RoutingDecision",
