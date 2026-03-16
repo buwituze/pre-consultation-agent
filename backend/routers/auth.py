@@ -175,7 +175,8 @@ def login(request: LoginRequest):
             "email": user['email'],
             "full_name": user['full_name'],
             "role": user['role'],
-            "facility_id": user['facility_id']
+            "facility_id": user['facility_id'],
+            "specialty": user.get('specialty')
         }
     )
 
@@ -254,3 +255,12 @@ def get_me(current_user: dict = Depends(get_current_user)):
         facility_id=current_user['facility_id'],
         is_active=current_user['is_active']
     )
+
+
+@router.get("/hospital-admins", response_model=list[UserResponse])
+def list_hospital_admins(
+    current_user: dict = Depends(require_role("platform_admin"))
+):
+    """List all hospital_admin users. Platform admin only."""
+    users = UserDB.get_users_by_role("hospital_admin")
+    return [UserResponse(**u) for u in users]

@@ -376,6 +376,14 @@ class UserDB:
         """
         return DatabaseConnection.execute_query(query)
 
+    @staticmethod
+    def get_users_by_role(role: str) -> List[Dict]:
+        query = """
+            SELECT user_id, email, full_name, role, specialty, facility_id, is_active, created_at
+            FROM users WHERE role = %s ORDER BY full_name
+        """
+        return DatabaseConnection.execute_query(query, (role,))
+
 
 class FacilityDB:
     @staticmethod
