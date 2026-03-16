@@ -12,12 +12,22 @@ hospital_admin: can only manage doctors within their own facility.
 platform_admin: can manage doctors across all facilities.
 """
 
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from threading import Lock
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 
 from database.database import UserDB, FacilityDB, DatabaseConnection
-from routers.auth import get_current_user, require_role, hash_password
+from routers.auth import require_role, hash_password
+from utils.email_service import (
+    send_credentials_email,
+    send_doctor_assignment_confirmation_email,
+)
 
 try:
     DatabaseConnection.initialize_pool()
@@ -25,6 +35,42 @@ except Exception:
     pass
 
 router = APIRouter(prefix="/doctors", tags=["doctors"])
+logger = logging.getLogger(__name__)
+
+DOCTOR_CONFIRMATION_TTL_HOURS = int(os.getenv("DOCTOR_ASSIGN_CONFIRMATION_TTL_HOURS", "24"))
+PUBLIC_API_BASE_URL = os.getenv("PUBLIC_API_BASE_URL", "http://localhost:8000").rstrip("/")
+
+
+class PendingDoctorRegistrationStore:
+    """In-memory pending requests for email confirmation before doctor creation."""
+
+    def __init__(self):
+        self._items: dict[str, dict] = {}
+        self._lock = Lock()
+
+    def create(self, payload: dict, ttl_hours: int) -> tuple[str, datetime]:
+        token = secrets.token_urlsafe(36)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        with self._lock:
+            self._items[token] = {"payload": payload, "expires_at": expires_at}
+        return token, expires_at
+
+    def pop_valid(self, token: str) -> Optional[dict]:
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            record = self._items.pop(token, None)
+            if not record:
+                return None
+            if record["expires_at"] < now:
+                return None
+            return record["payload"]
+
+    def discard(self, token: str):
+        with self._lock:
+            self._items.pop(token, None)
+
+
+pending_doctor_registrations = PendingDoctorRegistrationStore()
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +100,14 @@ class DoctorResponse(BaseModel):
     is_active: bool
 
 
+class DoctorRegistrationPendingResponse(BaseModel):
+    status: str
+    message: str
+    facility_id: int
+    confirmation_sent_to: list[EmailStr]
+    expires_at: datetime
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -72,11 +126,52 @@ def _get_doctor_or_404(doctor_id: int) -> dict:
     return dict(user)
 
 
+def _send_doctor_credentials_email(email: str, full_name: str, password: str):
+    sent, error = send_credentials_email(
+        recipient_email=email,
+        recipient_name=full_name,
+        username=email,
+        temporary_password=password,
+        role="doctor",
+    )
+    if not sent:
+        logger.warning(
+            "Doctor created but credential email failed for %s: %s",
+            email,
+            error,
+        )
+
+
+def _facility_confirmation_recipients(facility_id: int) -> list[str]:
+    facility = FacilityDB.get_facility(facility_id)
+    if not facility:
+        return []
+
+    recipients = set()
+    primary_email = (facility.get("primary_email") or "").strip()
+    if primary_email:
+        recipients.add(primary_email.lower())
+
+    for user in UserDB.get_users_by_facility(facility_id):
+        if user.get("role") != "hospital_admin":
+            continue
+        admin_email = (user.get("email") or "").strip()
+        if admin_email:
+            recipients.add(admin_email.lower())
+
+    return sorted(recipients)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@router.post("", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=DoctorResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={202: {"model": DoctorRegistrationPendingResponse}},
+)
 def register_doctor(
     request: DoctorRegisterRequest,
     current_user: dict = Depends(require_role("hospital_admin", "platform_admin"))
@@ -95,14 +190,15 @@ def register_doctor(
                 detail="You can only register doctors for your own facility"
             )
     else:
-        # platform_admin
+        # platform_admin requests require hospital-side email confirmation first.
         if request.facility_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="facility_id is required"
             )
         facility_id = request.facility_id
-        if not FacilityDB.get_facility(facility_id):
+        facility = FacilityDB.get_facility(facility_id)
+        if not facility:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Facility {facility_id} not found"
@@ -114,6 +210,57 @@ def register_doctor(
             detail="Email already registered"
         )
 
+    if current_user['role'] == 'platform_admin':
+        recipients = _facility_confirmation_recipients(facility_id)
+        if not recipients:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No facility confirmation recipients found (primary_email or hospital_admin email is required)",
+            )
+
+        pending_payload = {
+            "email": request.email,
+            "password": request.password,
+            "full_name": request.full_name,
+            "specialty": request.specialty,
+            "facility_id": facility_id,
+            "requested_by": current_user.get("full_name") or current_user.get("email") or "Platform Admin",
+        }
+        token, expires_at = pending_doctor_registrations.create(
+            payload=pending_payload,
+            ttl_hours=DOCTOR_CONFIRMATION_TTL_HOURS,
+        )
+
+        confirmation_url = f"{PUBLIC_API_BASE_URL}/doctors/confirm-registration?token={token}"
+
+        sent, error = send_doctor_assignment_confirmation_email(
+            recipients=recipients,
+            facility_name=facility.get("name", "Facility"),
+            doctor_name=request.full_name,
+            doctor_email=request.email,
+            specialty=request.specialty,
+            requested_by_name=pending_payload["requested_by"],
+            confirmation_url=confirmation_url,
+            expires_at_iso=expires_at.isoformat(),
+        )
+        if not sent:
+            pending_doctor_registrations.discard(token)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Confirmation email could not be sent: {error}",
+            )
+
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={
+                "status": "pending_confirmation",
+                "message": "Confirmation emails have been sent. The doctor will be added after a recipient confirms.",
+                "facility_id": facility_id,
+                "confirmation_sent_to": recipients,
+                "expires_at": expires_at.isoformat(),
+            },
+        )
+
     user = UserDB.create_user(
         email=request.email,
         password_hash=hash_password(request.password),
@@ -121,6 +268,11 @@ def register_doctor(
         role="doctor",
         facility_id=facility_id,
         specialty=request.specialty,
+    )
+    _send_doctor_credentials_email(
+        email=request.email,
+        full_name=request.full_name,
+        password=request.password,
     )
     return DoctorResponse(**user)
 
@@ -141,6 +293,45 @@ def list_doctors(
     else:
         doctors = UserDB.get_all_doctors()
     return [DoctorResponse(**d) for d in doctors]
+
+
+@router.get("/confirm-registration", response_model=DoctorResponse)
+def confirm_doctor_registration(token: str):
+    """Confirm a platform-admin doctor assignment and create the doctor account."""
+    payload = pending_doctor_registrations.pop_valid(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired confirmation token",
+        )
+
+    facility = FacilityDB.get_facility(payload["facility_id"])
+    if not facility:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Facility {payload['facility_id']} not found",
+        )
+
+    if UserDB.get_user_by_email(payload["email"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Doctor email already registered",
+        )
+
+    user = UserDB.create_user(
+        email=payload["email"],
+        password_hash=hash_password(payload["password"]),
+        full_name=payload["full_name"],
+        role="doctor",
+        facility_id=payload["facility_id"],
+        specialty=payload.get("specialty"),
+    )
+    _send_doctor_credentials_email(
+        email=payload["email"],
+        full_name=payload["full_name"],
+        password=payload["password"],
+    )
+    return DoctorResponse(**user)
 
 
 @router.get("/{doctor_id}", response_model=DoctorResponse)

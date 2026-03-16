@@ -7,6 +7,7 @@ GET  /auth/me          → get current user info from token
 """
 
 import os
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, status
@@ -16,6 +17,9 @@ import bcrypt
 import jwt
 
 from database.database import UserDB, FacilityDB, DatabaseConnection
+from utils.email_service import send_credentials_email
+
+logger = logging.getLogger(__name__)
 
 # Initialize database connection pool
 try:
@@ -233,6 +237,20 @@ def register(
         role=request.role,
         facility_id=request.facility_id
     )
+
+    email_sent, email_error = send_credentials_email(
+        recipient_email=request.email,
+        recipient_name=request.full_name,
+        username=request.email,
+        temporary_password=request.password,
+        role=request.role,
+    )
+    if not email_sent:
+        logger.warning(
+            "User created but credential email failed for %s: %s",
+            request.email,
+            email_error,
+        )
     
     return UserResponse(
         user_id=user['user_id'],
