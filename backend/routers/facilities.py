@@ -66,7 +66,17 @@ class FacilityResponse(BaseModel):
 def list_facilities(current_user: dict = Depends(get_current_user)):
     """List all facilities. Available to all authenticated users."""
     facilities = FacilityDB.get_all_facilities()
-    return [FacilityResponse(**f) for f in facilities]
+    normalized: list[FacilityResponse] = []
+    for facility in facilities:
+        row = dict(facility)
+        row.setdefault("admin_user_id", None)
+        row.setdefault("admin_name", None)
+        row.setdefault("total_doctors", 0)
+        row.setdefault("total_rooms", 0)
+        row.setdefault("active_rooms", 0)
+        row.setdefault("is_active", True)
+        normalized.append(FacilityResponse(**row))
+    return normalized
 
 
 @router.post("", response_model=dict)
