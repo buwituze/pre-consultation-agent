@@ -422,6 +422,15 @@ class UserDB:
         """
         return DatabaseConnection.execute_query(query, (role,))
 
+    @staticmethod
+    def get_all_users() -> List[Dict]:
+        query = f"""
+            SELECT {UserDB._user_select_fields()}
+            FROM users
+            ORDER BY full_name
+        """
+        return DatabaseConnection.execute_query(query)
+
 
 class FacilityDB:
     @staticmethod

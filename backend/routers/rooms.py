@@ -1,20 +1,18 @@
-"""
-routers/rooms.py — Room management endpoints.
+"""Room management endpoints with hospital confirmation for platform-admin mutations."""
 
-GET    /rooms                     → list rooms (by facility)
-POST   /rooms                     → create new room
-GET    /rooms/{id}                → get room details
-PUT    /rooms/{id}                → update room
-DELETE /rooms/{id}                → delete room
-PUT    /rooms/{id}/status         → update room status (active/inactive)
-"""
-
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from threading import Lock
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query
+
+from fastapi import APIRouter, HTTPException, Depends, Query, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from database.database import RoomDB, FacilityDB, DatabaseConnection
+from database.database import RoomDB, FacilityDB, DatabaseConnection, UserDB
 from routers.auth import get_current_user, require_role
+from utils.email_service import send_facility_action_confirmation_email
 
 # Initialize database connection pool
 try:
@@ -23,6 +21,13 @@ except:
     pass
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
+
+ROOM_ACTION_CONFIRMATION_TTL_HOURS = int(
+    os.getenv("ROOM_ACTION_CONFIRMATION_TTL_HOURS", "24")
+)
+PUBLIC_API_BASE_URL = os.getenv("PUBLIC_API_BASE_URL", "http://localhost:8000").rstrip(
+    "/"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +64,139 @@ class RoomResponse(BaseModel):
     capacity: int
 
 
+class RoomActionPendingResponse(BaseModel):
+    status: str
+    message: str
+    action: str
+    room_id: Optional[int] = None
+    facility_id: int
+    confirmation_sent_to: list[str]
+    expires_at: datetime
+
+
+class PendingRoomActionStore:
+    def __init__(self):
+        self._items: dict[str, dict] = {}
+        self._lock = Lock()
+
+    def create(self, payload: dict, ttl_hours: int) -> tuple[str, datetime]:
+        token = secrets.token_urlsafe(36)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        with self._lock:
+            self._items[token] = {"payload": payload, "expires_at": expires_at}
+        return token, expires_at
+
+    def pop_valid(self, token: str) -> Optional[dict]:
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            record = self._items.pop(token, None)
+            if not record:
+                return None
+            if record["expires_at"] < now:
+                return None
+            return record["payload"]
+
+    def discard(self, token: str):
+        with self._lock:
+            self._items.pop(token, None)
+
+
+pending_room_actions = PendingRoomActionStore()
+
+
+def _facility_confirmation_recipients(facility_id: int) -> list[str]:
+    facility = FacilityDB.get_facility(facility_id)
+    if not facility:
+        return []
+
+    recipients = set()
+    primary_email = (facility.get("primary_email") or "").strip()
+    if primary_email:
+        recipients.add(primary_email.lower())
+
+    for user in UserDB.get_users_by_facility(facility_id):
+        if user.get("role") != "hospital_admin":
+            continue
+        admin_email = (user.get("email") or "").strip()
+        if admin_email:
+            recipients.add(admin_email.lower())
+
+    return sorted(recipients)
+
+
+def _queue_platform_admin_room_action(
+    *,
+    action: str,
+    facility_id: int,
+    current_user: dict,
+    details: dict[str, str],
+    payload: dict,
+    room_id: Optional[int] = None,
+) -> JSONResponse:
+    facility = FacilityDB.get_facility(facility_id)
+    if not facility:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Facility {facility_id} not found",
+        )
+
+    recipients = _facility_confirmation_recipients(facility_id)
+    if not recipients:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No facility confirmation recipients found (primary_email or hospital_admin email is required)",
+        )
+
+    requested_by = (
+        current_user.get("full_name")
+        or current_user.get("email")
+        or "Platform Admin"
+    )
+
+    pending_payload = {
+        "action": action,
+        "facility_id": facility_id,
+        "room_id": room_id,
+        "requested_by": requested_by,
+        **payload,
+    }
+    token, expires_at = pending_room_actions.create(
+        payload=pending_payload,
+        ttl_hours=ROOM_ACTION_CONFIRMATION_TTL_HOURS,
+    )
+
+    confirmation_url = f"{PUBLIC_API_BASE_URL}/rooms/confirm-action/{token}"
+    sent, error = send_facility_action_confirmation_email(
+        recipients=recipients,
+        facility_name=facility.get("name", "Facility"),
+        action_title=f"Room {action.title()}",
+        action_summary=f"Room {action}",
+        requested_by_name=requested_by,
+        confirmation_url=confirmation_url,
+        expires_at_iso=expires_at.isoformat(),
+        details=details,
+    )
+    if not sent:
+        pending_room_actions.discard(token)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Confirmation email could not be sent: {error}",
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "status": "pending_confirmation",
+            "message": f"Confirmation emails sent. Room {action} will run after hospital confirmation.",
+            "action": action,
+            "room_id": room_id,
+            "facility_id": facility_id,
+            "confirmation_sent_to": recipients,
+            "expires_at": expires_at.isoformat(),
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -93,21 +231,38 @@ def list_rooms(
     return [RoomResponse(**r) for r in rooms]
 
 
-@router.post("", response_model=RoomResponse)
+@router.post(
+    "",
+    response_model=RoomResponse,
+    responses={202: {"model": RoomActionPendingResponse}},
+)
 def create_room(
     room: RoomCreate,
     current_user: dict = Depends(require_role("platform_admin", "hospital_admin"))
 ):
     """Create a new room. Platform admin or hospital admin only."""
-    # Hospital admin can only create rooms in their facility
-    if current_user['role'] == 'hospital_admin':
-        if current_user['facility_id'] != room.facility_id:
-            raise HTTPException(status_code=403, detail="Can only create rooms in your facility")
-    
     # Verify facility exists
     facility = FacilityDB.get_facility(room.facility_id)
     if not facility:
         raise HTTPException(status_code=404, detail="Facility not found")
+
+    # Hospital admin can only create rooms in their facility
+    if current_user['role'] == 'hospital_admin':
+        if current_user['facility_id'] != room.facility_id:
+            raise HTTPException(status_code=403, detail="Can only create rooms in your facility")
+    else:
+        return _queue_platform_admin_room_action(
+            action="create",
+            facility_id=room.facility_id,
+            current_user=current_user,
+            details={
+                "Room Name": room.room_name,
+                "Room Type": room.room_type,
+                "Floor": str(room.floor_number) if room.floor_number is not None else "-",
+                "Capacity": str(room.capacity),
+            },
+            payload={"room_data": room.model_dump()},
+        )
     
     new_room = RoomDB.create_room(
         facility_id=room.facility_id,
@@ -137,7 +292,11 @@ def get_room(
     return RoomResponse(**room)
 
 
-@router.put("/{room_id}", response_model=RoomResponse)
+@router.put(
+    "/{room_id}",
+    response_model=RoomResponse,
+    responses={202: {"model": RoomActionPendingResponse}},
+)
 def update_room(
     room_id: int,
     updates: RoomUpdate,
@@ -154,8 +313,26 @@ def update_room(
             raise HTTPException(status_code=403, detail="Can only update rooms in your facility")
     
     update_data = {k: v for k, v in updates.dict().items() if v is not None}
-    if update_data:
-        RoomDB.update_room(room_id, **update_data)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    if current_user['role'] == 'platform_admin':
+        return _queue_platform_admin_room_action(
+            action="update",
+            facility_id=room['facility_id'],
+            room_id=room_id,
+            current_user=current_user,
+            details={
+                "Room Name": room['room_name'],
+                "Current Status": room['status'],
+                "Requested Updates": ", ".join(
+                    f"{k}={v}" for k, v in update_data.items()
+                ),
+            },
+            payload={"updates": update_data},
+        )
+
+    RoomDB.update_room(room_id, **update_data)
     
     return RoomResponse(**RoomDB.get_room(room_id))
 
@@ -197,5 +374,63 @@ def delete_room(
         if current_user['facility_id'] != room['facility_id']:
             raise HTTPException(status_code=403, detail="Can only delete rooms in your facility")
     
+    if current_user['role'] == 'platform_admin':
+        return _queue_platform_admin_room_action(
+            action="delete",
+            facility_id=room['facility_id'],
+            room_id=room_id,
+            current_user=current_user,
+            details={
+                "Room Name": room['room_name'],
+                "Room Type": room['room_type'],
+                "Current Status": room['status'],
+            },
+            payload={},
+        )
+
     RoomDB.delete_room(room_id)
     return {"message": "Room deleted successfully"}
+
+
+@router.get("/confirm-action/{token}", response_model=dict)
+def confirm_room_action(token: str):
+    payload = pending_room_actions.pop_valid(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired confirmation token",
+        )
+
+    action = payload['action']
+    if action == 'create':
+        room_data = payload.get('room_data') or {}
+        facility = FacilityDB.get_facility(room_data.get('facility_id'))
+        if not facility:
+            raise HTTPException(status_code=404, detail="Facility not found")
+        room = RoomDB.create_room(**room_data)
+        return RoomResponse(**room).model_dump()
+
+    room_id = payload.get('room_id')
+    if room_id is None:
+        raise HTTPException(status_code=400, detail='room_id is required')
+
+    room = RoomDB.get_room(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail='Room not found')
+
+    if action == 'update':
+        updates = payload.get('updates') or {}
+        if not updates:
+            raise HTTPException(status_code=400, detail='No fields to update')
+        RoomDB.update_room(room_id, **updates)
+        return RoomResponse(**RoomDB.get_room(room_id)).model_dump()
+
+    if action == 'delete':
+        RoomDB.delete_room(room_id)
+        return {
+            'status': 'deleted',
+            'room_id': room_id,
+            'message': 'Room deleted successfully',
+        }
+
+    raise HTTPException(status_code=400, detail='Unsupported room action')

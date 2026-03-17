@@ -27,6 +27,7 @@ from routers.auth import require_role, hash_password
 from utils.email_service import (
     send_credentials_email,
     send_doctor_assignment_confirmation_email,
+    send_facility_action_confirmation_email,
 )
 
 try:
@@ -38,6 +39,7 @@ router = APIRouter(prefix="/doctors", tags=["doctors"])
 logger = logging.getLogger(__name__)
 
 DOCTOR_CONFIRMATION_TTL_HOURS = int(os.getenv("DOCTOR_ASSIGN_CONFIRMATION_TTL_HOURS", "24"))
+DOCTOR_ACTION_CONFIRMATION_TTL_HOURS = int(os.getenv("DOCTOR_ACTION_CONFIRMATION_TTL_HOURS", "24"))
 PUBLIC_API_BASE_URL = os.getenv("PUBLIC_API_BASE_URL", "http://localhost:8000").rstrip("/")
 
 
@@ -73,6 +75,38 @@ class PendingDoctorRegistrationStore:
 pending_doctor_registrations = PendingDoctorRegistrationStore()
 
 
+class PendingDoctorActionStore:
+    """In-memory pending doctor updates/deactivation/reactivation for confirmation."""
+
+    def __init__(self):
+        self._items: dict[str, dict] = {}
+        self._lock = Lock()
+
+    def create(self, payload: dict, ttl_hours: int) -> tuple[str, datetime]:
+        token = secrets.token_urlsafe(36)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        with self._lock:
+            self._items[token] = {"payload": payload, "expires_at": expires_at}
+        return token, expires_at
+
+    def pop_valid(self, token: str) -> Optional[dict]:
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            record = self._items.pop(token, None)
+            if not record:
+                return None
+            if record["expires_at"] < now:
+                return None
+            return record["payload"]
+
+    def discard(self, token: str):
+        with self._lock:
+            self._items.pop(token, None)
+
+
+pending_doctor_actions = PendingDoctorActionStore()
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -103,6 +137,16 @@ class DoctorResponse(BaseModel):
 class DoctorRegistrationPendingResponse(BaseModel):
     status: str
     message: str
+    facility_id: int
+    confirmation_sent_to: list[EmailStr]
+    expires_at: datetime
+
+
+class DoctorActionPendingResponse(BaseModel):
+    status: str
+    message: str
+    action: str
+    doctor_id: int
     facility_id: int
     confirmation_sent_to: list[EmailStr]
     expires_at: datetime
@@ -160,6 +204,78 @@ def _facility_confirmation_recipients(facility_id: int) -> list[str]:
             recipients.add(admin_email.lower())
 
     return sorted(recipients)
+
+
+def _queue_platform_admin_doctor_action(
+    *,
+    action: str,
+    doctor_id: int,
+    facility_id: int,
+    current_user: dict,
+    details: dict[str, str],
+    payload: dict,
+) -> JSONResponse:
+    facility = FacilityDB.get_facility(facility_id)
+    if not facility:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Facility {facility_id} not found",
+        )
+
+    recipients = _facility_confirmation_recipients(facility_id)
+    if not recipients:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No facility confirmation recipients found (primary_email or hospital_admin email is required)",
+        )
+
+    requested_by = (
+        current_user.get("full_name")
+        or current_user.get("email")
+        or "Platform Admin"
+    )
+    pending_payload = {
+        "action": action,
+        "doctor_id": doctor_id,
+        "facility_id": facility_id,
+        "requested_by": requested_by,
+        **payload,
+    }
+    token, expires_at = pending_doctor_actions.create(
+        payload=pending_payload,
+        ttl_hours=DOCTOR_ACTION_CONFIRMATION_TTL_HOURS,
+    )
+
+    confirmation_url = f"{PUBLIC_API_BASE_URL}/doctors/confirm-action/{token}"
+    sent, error = send_facility_action_confirmation_email(
+        recipients=recipients,
+        facility_name=facility.get("name", "Facility"),
+        action_title=f"Doctor {action.title()}",
+        action_summary=f"Doctor {action}",
+        requested_by_name=requested_by,
+        confirmation_url=confirmation_url,
+        expires_at_iso=expires_at.isoformat(),
+        details=details,
+    )
+    if not sent:
+        pending_doctor_actions.discard(token)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Confirmation email could not be sent: {error}",
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "status": "pending_confirmation",
+            "message": f"Confirmation emails sent. Doctor {action} will run after hospital confirmation.",
+            "action": action,
+            "doctor_id": doctor_id,
+            "facility_id": facility_id,
+            "confirmation_sent_to": recipients,
+            "expires_at": expires_at.isoformat(),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -345,7 +461,11 @@ def get_doctor(
     return DoctorResponse(**user)
 
 
-@router.put("/{doctor_id}", response_model=DoctorResponse)
+@router.put(
+    "/{doctor_id}",
+    response_model=DoctorResponse,
+    responses={202: {"model": DoctorActionPendingResponse}},
+)
 def update_doctor(
     doctor_id: int,
     request: DoctorUpdateRequest,
@@ -367,11 +487,38 @@ def update_doctor(
                 detail="Email already in use by another account"
             )
 
+    if current_user["role"] == "platform_admin":
+        facility_id = user.get("facility_id")
+        if not facility_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor is not assigned to a facility",
+            )
+        details = {
+            "Doctor": user.get("full_name") or f"Doctor #{doctor_id}",
+            "Doctor Email": user.get("email") or "-",
+            "Requested Updates": ", ".join(
+                f"{k}={v}" for k, v in updates.items()
+            ),
+        }
+        return _queue_platform_admin_doctor_action(
+            action="update",
+            doctor_id=doctor_id,
+            facility_id=facility_id,
+            current_user=current_user,
+            details=details,
+            payload={"updates": updates},
+        )
+
     UserDB.update_user(doctor_id, **updates)
     return DoctorResponse(**UserDB.get_user_by_id(doctor_id))
 
 
-@router.patch("/{doctor_id}/deactivate", response_model=DoctorResponse)
+@router.patch(
+    "/{doctor_id}/deactivate",
+    response_model=DoctorResponse,
+    responses={202: {"model": DoctorActionPendingResponse}},
+)
 def deactivate_doctor(
     doctor_id: int,
     current_user: dict = Depends(require_role("hospital_admin", "platform_admin"))
@@ -383,11 +530,34 @@ def deactivate_doctor(
     if not user['is_active']:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is already inactive")
 
+    if current_user["role"] == "platform_admin":
+        facility_id = user.get("facility_id")
+        if not facility_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor is not assigned to a facility",
+            )
+        return _queue_platform_admin_doctor_action(
+            action="deactivate",
+            doctor_id=doctor_id,
+            facility_id=facility_id,
+            current_user=current_user,
+            details={
+                "Doctor": user.get("full_name") or f"Doctor #{doctor_id}",
+                "Doctor Email": user.get("email") or "-",
+            },
+            payload={},
+        )
+
     UserDB.update_user(doctor_id, is_active=False)
     return DoctorResponse(**UserDB.get_user_by_id(doctor_id))
 
 
-@router.patch("/{doctor_id}/activate", response_model=DoctorResponse)
+@router.patch(
+    "/{doctor_id}/activate",
+    response_model=DoctorResponse,
+    responses={202: {"model": DoctorActionPendingResponse}},
+)
 def activate_doctor(
     doctor_id: int,
     current_user: dict = Depends(require_role("hospital_admin", "platform_admin"))
@@ -399,5 +569,78 @@ def activate_doctor(
     if user['is_active']:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is already active")
 
+    if current_user["role"] == "platform_admin":
+        facility_id = user.get("facility_id")
+        if not facility_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor is not assigned to a facility",
+            )
+        return _queue_platform_admin_doctor_action(
+            action="activate",
+            doctor_id=doctor_id,
+            facility_id=facility_id,
+            current_user=current_user,
+            details={
+                "Doctor": user.get("full_name") or f"Doctor #{doctor_id}",
+                "Doctor Email": user.get("email") or "-",
+            },
+            payload={},
+        )
+
     UserDB.update_user(doctor_id, is_active=True)
+    return DoctorResponse(**UserDB.get_user_by_id(doctor_id))
+
+
+@router.get("/confirm-action/{token}", response_model=DoctorResponse)
+def confirm_doctor_action(token: str):
+    payload = pending_doctor_actions.pop_valid(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired confirmation token",
+        )
+
+    doctor_id = payload["doctor_id"]
+    action = payload["action"]
+    user = _get_doctor_or_404(doctor_id)
+
+    if action == "update":
+        updates = payload.get("updates") or {}
+        if not updates:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields to update",
+            )
+        if "email" in updates:
+            existing = UserDB.get_user_by_email(updates["email"])
+            if existing and existing["user_id"] != doctor_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already in use by another account",
+                )
+        UserDB.update_user(doctor_id, **updates)
+
+    elif action == "deactivate":
+        if not user["is_active"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor is already inactive",
+            )
+        UserDB.update_user(doctor_id, is_active=False)
+
+    elif action == "activate":
+        if user["is_active"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor is already active",
+            )
+        UserDB.update_user(doctor_id, is_active=True)
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported doctor action",
+        )
+
     return DoctorResponse(**UserDB.get_user_by_id(doctor_id))

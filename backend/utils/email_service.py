@@ -235,3 +235,75 @@ def send_doctor_assignment_confirmation_email(
         html_content=html,
         text_content=text,
     )
+
+
+def send_facility_action_confirmation_email(
+    recipients: Sequence[str],
+    facility_name: str,
+    action_title: str,
+    action_summary: str,
+    requested_by_name: str,
+    confirmation_url: str,
+    expires_at_iso: str,
+    details: Optional[dict[str, str]] = None,
+) -> Tuple[bool, Optional[str]]:
+    rows_html = ""
+    rows_text = ""
+    for key, value in (details or {}).items():
+        safe_value = value if value and value.strip() else "-"
+        rows_html += (
+            "<tr>"
+            f"<td style=\"padding:6px 10px;border:1px solid #e2e2e2;background:#fbfbfb;font-weight:600;\">{key}</td>"
+            f"<td style=\"padding:6px 10px;border:1px solid #e2e2e2;\">{safe_value}</td>"
+            "</tr>"
+        )
+        rows_text += f"{key}: {safe_value}\n"
+
+    body_html = f"""
+<p style=\"margin:0 0 12px 0;\">A platform administrator requested an action for your facility. Please confirm to proceed.</p>
+<table cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;margin:0 0 18px 0;font-size:14px;\">
+  <tr>
+    <td style=\"padding:6px 10px;border:1px solid #e2e2e2;background:#fbfbfb;font-weight:600;\">Facility</td>
+    <td style=\"padding:6px 10px;border:1px solid #e2e2e2;\">{facility_name}</td>
+  </tr>
+  <tr>
+    <td style=\"padding:6px 10px;border:1px solid #e2e2e2;background:#fbfbfb;font-weight:600;\">Action</td>
+    <td style=\"padding:6px 10px;border:1px solid #e2e2e2;\">{action_summary}</td>
+  </tr>
+  <tr>
+    <td style=\"padding:6px 10px;border:1px solid #e2e2e2;background:#fbfbfb;font-weight:600;\">Requested By</td>
+    <td style=\"padding:6px 10px;border:1px solid #e2e2e2;\">{requested_by_name}</td>
+  </tr>
+  {rows_html}
+</table>
+<p style=\"margin:0 0 16px 0;\">
+  <a href=\"{confirmation_url}\" style=\"display:inline-block;padding:10px 16px;background:{_THEME_GREEN};color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;\">Confirm Action</a>
+</p>
+<p style=\"margin:0 0 8px 0;\">If the button does not open, copy and paste this URL into your browser:</p>
+<p style=\"margin:0 0 10px 0;color:#444;word-break:break-all;\">{confirmation_url}</p>
+<p style=\"margin:0;\">This confirmation request expires at {expires_at_iso}.</p>
+"""
+
+    html = _shell_email_layout(
+        title=f"Confirmation Required: {action_title}",
+        greeting="Dear Facility Leadership,",
+        body_html=body_html,
+        footer_text="Please approve only if this change is expected for your facility.",
+    )
+
+    text = (
+        "A platform administrator requested an action for your facility.\n\n"
+        f"Facility: {facility_name}\n"
+        f"Action: {action_summary}\n"
+        f"Requested By: {requested_by_name}\n"
+        f"{rows_text}\n"
+        f"Confirm using this URL: {confirmation_url}\n"
+        f"This request expires at {expires_at_iso}.\n"
+    )
+
+    return send_email(
+        recipients=recipients,
+        subject=f"Confirmation Required: {action_title}",
+        html_content=html,
+        text_content=text,
+    )

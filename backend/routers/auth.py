@@ -65,6 +65,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     facility_id: Optional[int]
+    specialty: Optional[str] = None
     is_active: bool
 
 
@@ -258,6 +259,7 @@ def register(
         full_name=user['full_name'],
         role=user['role'],
         facility_id=user['facility_id'],
+        specialty=user.get('specialty'),
         is_active=user['is_active']
     )
 
@@ -271,6 +273,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
         full_name=current_user['full_name'],
         role=current_user['role'],
         facility_id=current_user['facility_id'],
+        specialty=current_user.get('specialty'),
         is_active=current_user['is_active']
     )
 
@@ -281,4 +284,13 @@ def list_hospital_admins(
 ):
     """List all hospital_admin users. Platform admin only."""
     users = UserDB.get_users_by_role("hospital_admin")
+    return [UserResponse(**u) for u in users]
+
+
+@router.get("/users", response_model=list[UserResponse])
+def list_users(
+    current_user: dict = Depends(require_role("platform_admin"))
+):
+    """List all users. Platform admin only."""
+    users = UserDB.get_all_users()
     return [UserResponse(**u) for u in users]
