@@ -444,6 +444,8 @@ ORDER BY q.queue_number;
 CREATE VIEW v_facility_stats AS
 SELECT 
     f.facility_id, f.name, f.primary_email, f.primary_phone, f.location,
+    f.admin_user_id,
+    f.is_active,
     u.full_name AS admin_name,
     COUNT(DISTINCT hw.worker_id) AS total_doctors,
     COUNT(DISTINCT r.room_id) AS total_rooms,
@@ -453,4 +455,4 @@ LEFT JOIN users u ON f.admin_user_id = u.user_id
 LEFT JOIN healthcare_worker hw ON hw.facility_id = f.facility_id AND hw.is_active = TRUE
 LEFT JOIN room r ON r.facility_id = f.facility_id
 WHERE f.is_active = TRUE
-GROUP BY f.facility_id, f.name, f.primary_email, f.primary_phone, f.location, u.full_name;
+GROUP BY f.facility_id, f.name, f.primary_email, f.primary_phone, f.location, f.admin_user_id, f.is_active, u.full_name;
