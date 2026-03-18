@@ -62,6 +62,7 @@ class QueueEntryResponse(BaseModel):
     created_at: str
     started_at: Optional[str]
     completed_at: Optional[str]
+    required_exams: Optional[List[str]] = None
 
 
 MOCK_REQUIRED_EXAM_SETS = [
