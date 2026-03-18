@@ -1,8 +1,11 @@
+import json
 import logging
 import os
 import smtplib
 from email.message import EmailMessage
 from typing import Optional, Sequence, Tuple
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +39,91 @@ def _smtp_settings() -> dict:
     }
 
 
-def send_email(
-    recipients: Sequence[str] | str,
+def _emailjs_settings() -> dict:
+    return {
+        "api_url": os.getenv(
+            "EMAILJS_API_URL",
+            "https://api.emailjs.com/api/v1.0/email/send",
+        ).strip(),
+        "service_id": os.getenv("EMAILJS_SERVICE_ID", "").strip(),
+        "template_id": os.getenv("EMAILJS_TEMPLATE_ID", "").strip(),
+        "public_key": os.getenv("EMAILJS_PUBLIC_KEY", "").strip(),
+        "private_key": os.getenv("EMAILJS_PRIVATE_KEY", "").strip(),
+    }
+
+
+def _email_provider() -> str:
+    provider = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower()
+    if provider not in {"smtp", "emailjs"}:
+        logger.warning("Unknown EMAIL_PROVIDER '%s', defaulting to smtp", provider)
+        return "smtp"
+    return provider
+
+
+def _send_email_via_emailjs(
+    to_addresses: list[str],
+    subject: str,
+    html_content: str,
+    text_content: str,
+) -> Tuple[bool, Optional[str]]:
+    settings = _emailjs_settings()
+    smtp_settings = _smtp_settings()
+
+    required = {
+        "EMAILJS_SERVICE_ID": settings["service_id"],
+        "EMAILJS_TEMPLATE_ID": settings["template_id"],
+        "EMAILJS_PUBLIC_KEY": settings["public_key"],
+        "EMAILJS_PRIVATE_KEY": settings["private_key"],
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        return False, f"EmailJS is not configured (missing {', '.join(missing)})"
+
+    payload = {
+        "service_id": settings["service_id"],
+        "template_id": settings["template_id"],
+        "user_id": settings["public_key"],
+        "accessToken": settings["private_key"],
+        "template_params": {
+            "to_email": ", ".join(to_addresses),
+            "subject": subject,
+            "html_message": html_content,
+            "text_message": text_content,
+            "from_name": smtp_settings["from_name"],
+            "from_email": smtp_settings["from_email"],
+        },
+    }
+
+    req = urllib_request.Request(
+        settings["api_url"],
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib_request.urlopen(req, timeout=20) as response:
+            status_code = response.getcode()
+            response_body = response.read().decode("utf-8", errors="ignore")
+            if 200 <= status_code < 300:
+                return True, None
+            return False, f"EmailJS returned status {status_code}: {response_body}"
+    except urllib_error.HTTPError as exc:
+        response_body = exc.read().decode("utf-8", errors="ignore")
+        logger.exception("Failed to send email via EmailJS")
+        return False, f"EmailJS error {exc.code}: {response_body or exc.reason}"
+    except Exception as exc:
+        logger.exception("Failed to send email via EmailJS")
+        return False, str(exc)
+
+
+def _send_email_via_smtp(
+    to_addresses: list[str],
     subject: str,
     html_content: str,
     text_content: str,
 ) -> Tuple[bool, Optional[str]]:
     settings = _smtp_settings()
-    to_addresses = _normalize_recipients(recipients)
-
-    if not to_addresses:
-        return False, "No recipient email addresses were provided"
 
     if not settings["host"] or not settings["from_email"]:
         return False, "SMTP is not configured (missing SMTP_HOST or SMTP_FROM_EMAIL)"
@@ -76,6 +153,33 @@ def send_email(
     except Exception as exc:
         logger.exception("Failed to send email")
         return False, str(exc)
+
+
+def send_email(
+    recipients: Sequence[str] | str,
+    subject: str,
+    html_content: str,
+    text_content: str,
+) -> Tuple[bool, Optional[str]]:
+    to_addresses = _normalize_recipients(recipients)
+
+    if not to_addresses:
+        return False, "No recipient email addresses were provided"
+
+    if _email_provider() == "emailjs":
+        return _send_email_via_emailjs(
+            to_addresses=to_addresses,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+        )
+
+    return _send_email_via_smtp(
+        to_addresses=to_addresses,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+    )
 
 
 def _shell_email_layout(title: str, greeting: str, body_html: str, footer_text: str) -> str:
@@ -121,6 +225,7 @@ def send_credentials_email(
     role: str,
 ) -> Tuple[bool, Optional[str]]:
     role_label = role.replace("_", " ").title()
+    login_url = os.getenv("APP_LOGIN_URL", "http://localhost:3000/login").strip()
 
     body_html = f"""
 <p style=\"margin:0 0 12px 0;\">Your account has been provisioned with the details below:</p>
@@ -139,6 +244,10 @@ def send_credentials_email(
   </tr>
 </table>
 <p style=\"margin:0 0 12px 0;color:#222;\"><strong>Action required:</strong> Please sign in and change your password immediately after your first login.</p>
+<p style=\"margin:0 0 16px 0;\">
+  <a href=\"{login_url}\" style=\"display:inline-block;padding:10px 16px;background:{_THEME_GREEN};color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;\">Open Login Page</a>
+</p>
+<p style=\"margin:0 0 12px 0;\">If the button does not open, use this link: {login_url}</p>
 <p style=\"margin:0;\">If you were not expecting this account setup, please contact your organization administrator.</p>
 """
 
@@ -155,6 +264,7 @@ def send_credentials_email(
         f"Role: {role_label}\n"
         f"Username: {username}\n"
         f"Temporary Password: {temporary_password}\n\n"
+        f"Login URL: {login_url}\n\n"
         "Please sign in and change your password immediately after your first login.\n"
         "If you were not expecting this account setup, contact your organization administrator.\n"
     )

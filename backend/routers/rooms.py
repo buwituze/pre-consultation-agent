@@ -1,5 +1,6 @@
-"""Room management endpoints with hospital confirmation for platform-admin mutations."""
+"""Room management endpoints."""
 
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,7 @@ except:
     pass
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
+logger = logging.getLogger(__name__)
 
 ROOM_ACTION_CONFIRMATION_TTL_HOURS = int(
     os.getenv("ROOM_ACTION_CONFIRMATION_TTL_HOURS", "24")
@@ -176,18 +178,26 @@ def _queue_platform_admin_room_action(
         expires_at_iso=expires_at.isoformat(),
         details=details,
     )
-    if not sent:
-        pending_room_actions.discard(token)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Confirmation email could not be sent: {error}",
+
+    if sent:
+        message = f"Confirmation emails sent. Room {action} will run after hospital confirmation."
+    else:
+        logger.warning(
+            "Room %s queued but confirmation email failed for facility %s: %s",
+            action,
+            facility_id,
+            error,
+        )
+        message = (
+            f"Room {action} request is queued and still requires hospital confirmation. "
+            "Email service is currently unavailable, so admins should wait for confirmation processing."
         )
 
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={
             "status": "pending_confirmation",
-            "message": f"Confirmation emails sent. Room {action} will run after hospital confirmation.",
+            "message": message,
             "action": action,
             "room_id": room_id,
             "facility_id": facility_id,
@@ -234,7 +244,6 @@ def list_rooms(
 @router.post(
     "",
     response_model=RoomResponse,
-    responses={202: {"model": RoomActionPendingResponse}},
 )
 def create_room(
     room: RoomCreate,
@@ -247,22 +256,8 @@ def create_room(
         raise HTTPException(status_code=404, detail="Facility not found")
 
     # Hospital admin can only create rooms in their facility
-    if current_user['role'] == 'hospital_admin':
-        if current_user['facility_id'] != room.facility_id:
-            raise HTTPException(status_code=403, detail="Can only create rooms in your facility")
-    else:
-        return _queue_platform_admin_room_action(
-            action="create",
-            facility_id=room.facility_id,
-            current_user=current_user,
-            details={
-                "Room Name": room.room_name,
-                "Room Type": room.room_type,
-                "Floor": str(room.floor_number) if room.floor_number is not None else "-",
-                "Capacity": str(room.capacity),
-            },
-            payload={"room_data": room.model_dump()},
-        )
+    if current_user['role'] == 'hospital_admin' and current_user['facility_id'] != room.facility_id:
+        raise HTTPException(status_code=403, detail="Can only create rooms in your facility")
     
     new_room = RoomDB.create_room(
         facility_id=room.facility_id,
@@ -295,7 +290,6 @@ def get_room(
 @router.put(
     "/{room_id}",
     response_model=RoomResponse,
-    responses={202: {"model": RoomActionPendingResponse}},
 )
 def update_room(
     room_id: int,
@@ -315,22 +309,6 @@ def update_room(
     update_data = {k: v for k, v in updates.dict().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
-
-    if current_user['role'] == 'platform_admin':
-        return _queue_platform_admin_room_action(
-            action="update",
-            facility_id=room['facility_id'],
-            room_id=room_id,
-            current_user=current_user,
-            details={
-                "Room Name": room['room_name'],
-                "Current Status": room['status'],
-                "Requested Updates": ", ".join(
-                    f"{k}={v}" for k, v in update_data.items()
-                ),
-            },
-            payload={"updates": update_data},
-        )
 
     RoomDB.update_room(room_id, **update_data)
     
@@ -370,23 +348,8 @@ def delete_room(
         raise HTTPException(status_code=404, detail="Room not found")
     
     # Hospital admin can only delete rooms in their facility
-    if current_user['role'] == 'hospital_admin':
-        if current_user['facility_id'] != room['facility_id']:
-            raise HTTPException(status_code=403, detail="Can only delete rooms in your facility")
-    
-    if current_user['role'] == 'platform_admin':
-        return _queue_platform_admin_room_action(
-            action="delete",
-            facility_id=room['facility_id'],
-            room_id=room_id,
-            current_user=current_user,
-            details={
-                "Room Name": room['room_name'],
-                "Room Type": room['room_type'],
-                "Current Status": room['status'],
-            },
-            payload={},
-        )
+    if current_user['role'] == 'hospital_admin' and current_user['facility_id'] != room['facility_id']:
+        raise HTTPException(status_code=403, detail="Can only delete rooms in your facility")
 
     RoomDB.delete_room(room_id)
     return {"message": "Room deleted successfully"}

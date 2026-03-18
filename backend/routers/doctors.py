@@ -257,18 +257,26 @@ def _queue_platform_admin_doctor_action(
         expires_at_iso=expires_at.isoformat(),
         details=details,
     )
-    if not sent:
-        pending_doctor_actions.discard(token)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Confirmation email could not be sent: {error}",
+
+    if sent:
+        message = f"Confirmation emails sent. Doctor {action} will run after hospital confirmation."
+    else:
+        logger.warning(
+            "Doctor %s queued but confirmation email failed for facility %s: %s",
+            action,
+            facility_id,
+            error,
+        )
+        message = (
+            f"Doctor {action} request is queued and still requires hospital confirmation. "
+            "Email service is currently unavailable, so admins should wait for confirmation processing."
         )
 
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={
             "status": "pending_confirmation",
-            "message": f"Confirmation emails sent. Doctor {action} will run after hospital confirmation.",
+            "message": message,
             "action": action,
             "doctor_id": doctor_id,
             "facility_id": facility_id,
@@ -286,7 +294,6 @@ def _queue_platform_admin_doctor_action(
     "",
     response_model=DoctorResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={202: {"model": DoctorRegistrationPendingResponse}},
 )
 def register_doctor(
     request: DoctorRegisterRequest,
@@ -306,7 +313,7 @@ def register_doctor(
                 detail="You can only register doctors for your own facility"
             )
     else:
-        # platform_admin requests require hospital-side email confirmation first.
+        # platform_admin must provide target facility.
         if request.facility_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -324,57 +331,6 @@ def register_doctor(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
-        )
-
-    if current_user['role'] == 'platform_admin':
-        recipients = _facility_confirmation_recipients(facility_id)
-        if not recipients:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No facility confirmation recipients found (primary_email or hospital_admin email is required)",
-            )
-
-        pending_payload = {
-            "email": request.email,
-            "password": request.password,
-            "full_name": request.full_name,
-            "specialty": request.specialty,
-            "facility_id": facility_id,
-            "requested_by": current_user.get("full_name") or current_user.get("email") or "Platform Admin",
-        }
-        token, expires_at = pending_doctor_registrations.create(
-            payload=pending_payload,
-            ttl_hours=DOCTOR_CONFIRMATION_TTL_HOURS,
-        )
-
-        confirmation_url = f"{PUBLIC_API_BASE_URL}/doctors/confirm-registration?token={token}"
-
-        sent, error = send_doctor_assignment_confirmation_email(
-            recipients=recipients,
-            facility_name=facility.get("name", "Facility"),
-            doctor_name=request.full_name,
-            doctor_email=request.email,
-            specialty=request.specialty,
-            requested_by_name=pending_payload["requested_by"],
-            confirmation_url=confirmation_url,
-            expires_at_iso=expires_at.isoformat(),
-        )
-        if not sent:
-            pending_doctor_registrations.discard(token)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Confirmation email could not be sent: {error}",
-            )
-
-        return JSONResponse(
-            status_code=status.HTTP_202_ACCEPTED,
-            content={
-                "status": "pending_confirmation",
-                "message": "Confirmation emails have been sent. The doctor will be added after a recipient confirms.",
-                "facility_id": facility_id,
-                "confirmation_sent_to": recipients,
-                "expires_at": expires_at.isoformat(),
-            },
         )
 
     user = UserDB.create_user(
@@ -464,7 +420,6 @@ def get_doctor(
 @router.put(
     "/{doctor_id}",
     response_model=DoctorResponse,
-    responses={202: {"model": DoctorActionPendingResponse}},
 )
 def update_doctor(
     doctor_id: int,
@@ -487,29 +442,6 @@ def update_doctor(
                 detail="Email already in use by another account"
             )
 
-    if current_user["role"] == "platform_admin":
-        facility_id = user.get("facility_id")
-        if not facility_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Doctor is not assigned to a facility",
-            )
-        details = {
-            "Doctor": user.get("full_name") or f"Doctor #{doctor_id}",
-            "Doctor Email": user.get("email") or "-",
-            "Requested Updates": ", ".join(
-                f"{k}={v}" for k, v in updates.items()
-            ),
-        }
-        return _queue_platform_admin_doctor_action(
-            action="update",
-            doctor_id=doctor_id,
-            facility_id=facility_id,
-            current_user=current_user,
-            details=details,
-            payload={"updates": updates},
-        )
-
     UserDB.update_user(doctor_id, **updates)
     return DoctorResponse(**UserDB.get_user_by_id(doctor_id))
 
@@ -517,7 +449,6 @@ def update_doctor(
 @router.patch(
     "/{doctor_id}/deactivate",
     response_model=DoctorResponse,
-    responses={202: {"model": DoctorActionPendingResponse}},
 )
 def deactivate_doctor(
     doctor_id: int,
@@ -530,25 +461,6 @@ def deactivate_doctor(
     if not user['is_active']:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is already inactive")
 
-    if current_user["role"] == "platform_admin":
-        facility_id = user.get("facility_id")
-        if not facility_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Doctor is not assigned to a facility",
-            )
-        return _queue_platform_admin_doctor_action(
-            action="deactivate",
-            doctor_id=doctor_id,
-            facility_id=facility_id,
-            current_user=current_user,
-            details={
-                "Doctor": user.get("full_name") or f"Doctor #{doctor_id}",
-                "Doctor Email": user.get("email") or "-",
-            },
-            payload={},
-        )
-
     UserDB.update_user(doctor_id, is_active=False)
     return DoctorResponse(**UserDB.get_user_by_id(doctor_id))
 
@@ -556,7 +468,6 @@ def deactivate_doctor(
 @router.patch(
     "/{doctor_id}/activate",
     response_model=DoctorResponse,
-    responses={202: {"model": DoctorActionPendingResponse}},
 )
 def activate_doctor(
     doctor_id: int,
@@ -568,25 +479,6 @@ def activate_doctor(
 
     if user['is_active']:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is already active")
-
-    if current_user["role"] == "platform_admin":
-        facility_id = user.get("facility_id")
-        if not facility_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Doctor is not assigned to a facility",
-            )
-        return _queue_platform_admin_doctor_action(
-            action="activate",
-            doctor_id=doctor_id,
-            facility_id=facility_id,
-            current_user=current_user,
-            details={
-                "Doctor": user.get("full_name") or f"Doctor #{doctor_id}",
-                "Doctor Email": user.get("email") or "-",
-            },
-            payload={},
-        )
 
     UserDB.update_user(doctor_id, is_active=True)
     return DoctorResponse(**UserDB.get_user_by_id(doctor_id))
