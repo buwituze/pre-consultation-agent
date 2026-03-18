@@ -241,7 +241,7 @@ Together, these milestones show that the system can function as a meaningful pre
 
 ## Recommendations
 
-Recommended next steps:
+Next steps:
 
 - Implement respiratory distress detection from speech/audio to support immediate emergency escalation.
 - Add stronger validation in real hospital pilot environments with clinician feedback loops.
@@ -249,14 +249,11 @@ Recommended next steps:
 - Add more preset symptoms so the system has a fallback and doesn't always call the models.
 - Strengthen deployment hardening (security, privacy controls, auditability, and observability).
 
-
 Community application guidance:
 
 - Use the tool as supervised pre-consultation support, never as standalone diagnosis.
 - Keep clinicians in the decision loop for all medical decisions.
 - Pair technical rollout with user training for hospital staff and patient facilitators.
-
-
 
 ## Repository Structure Overview
 
@@ -295,3 +292,19 @@ pre-consultation-agent/
 ├── Assests/
 ├── README.md
 └── fly.toml
+
+## Testing images:
+
+Frontend (Flutter Web):
+
+![alt text](<Screenshot 2026-03-13 222814.png>)
+
+Backend:
+
+Kaggle:
+
+![alt text](<Screenshot 2026-03-13 235241.png>)
+
+Swagger UI:
+
+![alt text](image.png)
