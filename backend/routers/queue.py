@@ -12,7 +12,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
-from database.database import QueueDB, SessionDB, DatabaseConnection
+from database.database import QueueDB, DatabaseConnection, RoomDB
 from routers.auth import get_current_user, require_role
 
 # Initialize database connection pool
@@ -31,6 +31,12 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 class AssignQueueRequest(BaseModel):
     doctor_id: int
     room_id: Optional[int] = None
+    required_exams: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+
+class AssignSessionRoomRequest(BaseModel):
+    room_id: int
     required_exams: Optional[List[str]] = None
     notes: Optional[str] = None
 
@@ -56,6 +62,57 @@ class QueueEntryResponse(BaseModel):
     created_at: str
     started_at: Optional[str]
     completed_at: Optional[str]
+
+
+MOCK_REQUIRED_EXAM_SETS = [
+    [
+        "Complete Blood Count (CBC)",
+        "Basic Metabolic Panel (BMP)",
+        "Vital Signs Recheck",
+    ],
+    [
+        "C-Reactive Protein (CRP)",
+        "Urinalysis",
+        "Point-of-Care Glucose",
+    ],
+    [
+        "Chest X-Ray",
+        "Pulse Oximetry Trend",
+        "ECG",
+    ],
+    [
+        "Liver Function Panel",
+        "Electrolytes Panel",
+        "Physical Examination Follow-up",
+    ],
+]
+
+
+def _get_worker_id_for_user(user_id: int) -> int:
+    with DatabaseConnection.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT worker_id FROM healthcare_worker WHERE user_id = %s",
+                (user_id,),
+            )
+            result = cur.fetchone()
+            if not result:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Worker profile not found for this user",
+                )
+            return result['worker_id']
+
+
+def _default_mock_exams(
+    queue_id: int,
+    queue_name: Optional[str] = None,
+    department: Optional[str] = None,
+) -> List[str]:
+    seed_text = f"{queue_name or ''}|{department or ''}|{queue_id}"
+    seed = sum(ord(ch) for ch in seed_text)
+    exam_set = MOCK_REQUIRED_EXAM_SETS[seed % len(MOCK_REQUIRED_EXAM_SETS)]
+    return list(exam_set)
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +183,57 @@ def assign_queue_entry(
     return {"message": "Patient assigned successfully", "queue_entry": QueueDB.get_queue_entry(queue_id)}
 
 
+@router.post("/session/{session_id}/assign-room")
+def assign_room_for_session(
+    session_id: int,
+    request: AssignSessionRoomRequest,
+    current_user: dict = Depends(require_role("doctor")),
+):
+    """
+    Assign a room to the queue entry tied to the session.
+    If exams are not provided, attach mock required exams automatically.
+    """
+    queue_row = QueueDB.get_queue_by_session(session_id)
+    if not queue_row:
+        raise HTTPException(status_code=404, detail="Queue entry not found for session")
+
+    room = RoomDB.get_room(request.room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if room['status'] != 'active':
+        raise HTTPException(status_code=400, detail="Only active rooms can be assigned")
+
+    if room['facility_id'] != queue_row['facility_id']:
+        raise HTTPException(
+            status_code=403,
+            detail="Selected room does not belong to the queue facility",
+        )
+
+    doctor_id = _get_worker_id_for_user(current_user['user_id'])
+
+    exams = request.required_exams or _default_mock_exams(
+        queue_id=queue_row['queue_id'],
+        queue_name=queue_row.get('queue_name'),
+        department=queue_row.get('department'),
+    )
+
+    QueueDB.assign_to_doctor(
+        queue_id=queue_row['queue_id'],
+        doctor_id=doctor_id,
+        room_id=request.room_id,
+        exams=exams,
+        notes=request.notes,
+    )
+
+    updated = QueueDB.get_queue_entry(queue_row['queue_id'])
+    return {
+        "message": "Room assigned successfully",
+        "queue_entry": updated,
+        "required_exams": exams,
+    }
+
+
 @router.put("/{queue_id}/status")
 def update_queue_status(
     queue_id: int,
@@ -151,15 +259,7 @@ def update_queue_status(
 @router.get("/doctor/me", response_model=list[QueueEntryResponse])
 def get_my_queue(current_user: dict = Depends(require_role("doctor"))):
     """Get queue for the current doctor"""
-    # Get worker_id from user_id
-    from database.database import HealthcareWorkerDB
-    with DatabaseConnection.get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT worker_id FROM healthcare_worker WHERE user_id = %s", (current_user['user_id'],))
-            result = cur.fetchone()
-            if not result:
-                raise HTTPException(status_code=404, detail="Worker profile not found for this user")
-            worker_id = result['worker_id']
+    worker_id = _get_worker_id_for_user(current_user['user_id'])
     
     queue = QueueDB.get_doctor_queue(worker_id)
     return [QueueEntryResponse(**entry) for entry in queue]
