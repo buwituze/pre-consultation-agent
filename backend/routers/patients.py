@@ -35,6 +35,7 @@ class PatientListItem(BaseModel):
     patient_id: int
     full_name: str
     residency: Optional[str]
+    age: Optional[int] = None
     priority: Optional[str]
     session_id: Optional[int]
     start_time: Optional[datetime]

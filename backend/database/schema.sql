@@ -410,12 +410,18 @@ CREATE TRIGGER update_queue_updated_at BEFORE UPDATE ON examination_queue
 
 -- Views for doctor dashboard
 CREATE VIEW v_patient_list AS
-SELECT 
-    p.patient_id, p.full_name, p.location AS residency,
-    s.session_id, s.start_time,
+SELECT
+    p.patient_id,
+    p.full_name,
+    p.location AS residency,
+    s.session_id,
+    s.start_time,
+    s.patient_age AS age,
     pred.risk_level AS priority,
-    q.queue_number, q.queue_status,
-    q.assigned_doctor_id, q.assigned_room_id
+    q.queue_number,
+    q.queue_status,
+    q.assigned_doctor_id,
+    q.assigned_room_id
 FROM patient p
 LEFT JOIN session s ON p.patient_id = s.patient_id
 LEFT JOIN prediction pred ON s.session_id = pred.session_id
