@@ -7,7 +7,7 @@ For component specific details, see:
 
 ## Overview
 
-The Pre-Consultation Agent is a hospital-owned, voice-based system that helps collect patient information before a doctor consultation.
+Eleza is a faster way to talk to our doctors. This project is a preconsultationa gent which is hospital-owned and voice-based system that helps collect patient information before a doctor consultation.
 
 It supports Kinyarwanda and English, asks follow-up questions to clarify symptoms, and provides structured outputs for clinical review.
 
@@ -29,10 +29,10 @@ Expected value:
 
 ## Demo And Deployment Links
 
-- Demo video: [Add demo video link here](https://drive.google.com/drive/folders/1eRBl3uKAhTo8PucomjlGDkXwoBHeUNrZ?usp=sharing)
-- Deployed frontend: [Add deployed frontend link here](https://drive.google.com/drive/folders/1_HDb-CJvF1riBDUhP5I5dgTGcu4zviLh?usp=sharing)
-- Deployed backend/API: [Add deployed backend link here](https://boisterously-implicatory-anderson.ngrok-free.dev/docs)
-- Deployed database: [Renderr](https://dashboard.render.com/d/dpg-d6ol7qkr85hc739hdvog-a)
+- Demo video: [Link to demo video](https://drive.google.com/drive/folders/1eRBl3uKAhTo8PucomjlGDkXwoBHeUNrZ?usp=sharing)
+- Deployed frontend: [Link to flutter APK file](https://drive.google.com/drive/folders/1_HDb-CJvF1riBDUhP5I5dgTGcu4zviLh?usp=sharing)
+- Deployed backend/API: [Link to backend ](https://boisterously-implicatory-anderson.ngrok-free.dev/docs)
+- Deployed database: [Link to Render database](https://dashboard.render.com/d/dpg-d6ol7qkr85hc739hdvog-a)
 
 ## Quick Setup (Backend + Frontend)
 
@@ -162,8 +162,8 @@ Note: this script targets conversation endpoints that may differ from the curren
 
 7. Notebook-based testing
 
-- `backend/kaggle-new-system-test.ipynb`
-- `backend/colab-new-system-test.ipynb`
+- `backend/kaggle-test.ipynb`
+- `backend/colab-test.ipynb`
 - Model notebooks in `notebooks/` for focused experimentation per model.
 
 ### Frontend Testing Alternatives
@@ -220,7 +220,9 @@ Current gap against intended objective:
 
 Detailed analysis of the results and how they achieved or missed the objectives in the project proposal with the supervisor.
 
-The project achieved key functional objectives for supervised pre-consultation intake: multilingual patient interaction, iterative clarification, safe non-diagnostic guidance, and doctor-facing case summaries. These outcomes align with the objective of reducing intake friction while preserving clinician decision authority.
+The project achieved key functional objectives for supervised pre-consultation intake: multilingual patient interaction (Kinyarwanda and English), iterative clarification, safe non-diagnostic guidance, and doctor-facing case summaries. These outcomes align with the objective of reducing intake friction while preserving clinician decision authority.
+
+Afterdiscussin, the system direct the patient to a particular area as necessary or escalates to emergency if necessary. Finally, The doctor can also view each patient's case and assign them necessary examinations or other next steps.
 
 However, one high-impact objective remains incomplete: automatic breathing/emergency detection directly from patient speech. Because this feature was not completed, emergency detection is currently dependent on existing symptom and red-flag logic rather than dedicated respiratory signal analysis. This leaves an important safety enhancement for future implementation.
 
@@ -239,18 +241,57 @@ Together, these milestones show that the system can function as a meaningful pre
 
 ## Recommendations
 
-Some recommendations to the community concerning the application of the product & Future Work with the supervisor.
-
 Recommended next steps:
 
 - Implement respiratory distress detection from speech/audio to support immediate emergency escalation.
 - Add stronger validation in real hospital pilot environments with clinician feedback loops.
-- Expand multilingual robustness and accents/dialect handling.
-- Improve monitoring metrics for triage quality, false-positive alerts, and doctor satisfaction.
+- Expand multilingual robustness and accents handling.
+- Add more preset symptoms so the system has a fallback and doesn't always call the models.
 - Strengthen deployment hardening (security, privacy controls, auditability, and observability).
+
 
 Community application guidance:
 
 - Use the tool as supervised pre-consultation support, never as standalone diagnosis.
 - Keep clinicians in the decision loop for all medical decisions.
 - Pair technical rollout with user training for hospital staff and patient facilitators.
+
+
+
+## Repository Structure Overview
+
+This repository is organized as follows (see each folder's README for details):
+
+pre-consultation-agent/
+├── backend/
+│ ├── main.py
+│ ├── requirements.txt
+│ ├── routers/
+│ │ ├── auth.py
+│ │ ├── dialogue.py
+│ │ ├── doctor.py
+│ │ └── ...
+│ ├── database/
+│ │ ├── database.py
+│ │ ├── schema.sql
+│ │ └── migrations/
+│ ├── utils/
+│ │ └── email_service.py
+│ └── models/
+│ └── ...
+├── frontend/
+│ ├── pubspec.yaml
+│ ├── lib/
+│ │ ├── main.dart
+│ │ ├── screens/
+│ │ ├── components/
+│ │ ├── models/
+│ │ └── services/
+│ ├── assets/
+│ └── test/
+├── notebooks/
+├── testing/
+├── Datasets/
+├── Assests/
+├── README.md
+└── fly.toml
