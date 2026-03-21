@@ -91,6 +91,12 @@ class _AllPatientsPageState extends State<AllPatientsPage> {
     try {
       final result = await ApiService.getPatients();
       if (!mounted || requestId != _latestFetchRequestId) return;
+      // Sort patients by startTime descending (most recent first)
+      result.sort((a, b) {
+        final aTime = DateTime.tryParse(a.startTime ?? '') ?? DateTime(1970);
+        final bTime = DateTime.tryParse(b.startTime ?? '') ?? DateTime(1970);
+        return bTime.compareTo(aTime);
+      });
       setState(() => _allPatients = result);
     } catch (e) {
       if (!mounted || requestId != _latestFetchRequestId) return;
