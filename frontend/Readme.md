@@ -99,3 +99,24 @@ These files support the bilingual voice interface for the consultation system.
 - [Flutter Documentation](https://docs.flutter.dev/)
 - [Dart Language Tour](https://dart.dev/guides/language/language-tour)
 - [Flutter Cookbook](https://docs.flutter.dev/cookbook)
+
+## System Description
+
+### Text-to-Speech (TTS)
+
+- **ElevenLabs API**: The frontend uses the ElevenLabs Text-to-Speech API with the "Keza — Rwandan Diaspora" voice (multilingual v2) to generate natural-sounding speech in both Kinyarwanda and English.
+- **Integration**: The TTS service is implemented in `lib/services/tts_service.dart`, using the `http` package for API calls and `audioplayers` for playback.
+- **API Key**: The ElevenLabs API key is loaded from the `.env` file in the frontend directory.
+
+### Audio Handling
+
+- **Recording**: Audio input is managed using the `record` package, supporting all major platforms (Web, Android, iOS, Windows, macOS, Linux).
+- **Permissions**: Microphone access is handled via the `permission_handler` package for mobile and desktop, and via browser APIs for web.
+- **Encoding**: Audio is recorded in platform-appropriate formats (WAV for web, AAC/M4A for mobile/macOS, WAV for Windows/Linux).
+- **Cross-Platform**: Platform-specific logic is abstracted in `audio_service.dart` and its conditional imports (`audio_service_io.dart` for mobile/desktop, `audio_service_stub.dart` for web).
+
+### Backend Integration
+
+- **API Communication**: The frontend communicates with the backend using the `http` package, with API endpoints configured in `lib/services/`.
+- **File Uploads**: Audio files are uploaded as multipart form data, with platform-specific implementations for file access and upload.
+- **Session Management**: The frontend manages session state and interacts with backend endpoints for starting sessions, submitting audio, and retrieving results.
