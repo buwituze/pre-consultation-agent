@@ -5,6 +5,7 @@ models/model_f.py — Doctor summary generator wrapper.
 import os, json, re, datetime
 from typing import Optional
 from google import genai
+from .gemini_utils import generate_with_fallback
 
 _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -84,8 +85,8 @@ Understood. JSON brief only, no diagnosis.
 {prompt}"""
 
     try:
-        response = _client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',
+        response = generate_with_fallback(
+            _client,
             contents=full_prompt,
             config={
                 'temperature': 0.1,

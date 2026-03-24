@@ -5,6 +5,7 @@ models/model_e.py — Patient-facing guidance message generator.
 import os
 from typing import Optional
 from google import genai
+from .gemini_utils import generate_with_fallback
 
 _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -99,8 +100,8 @@ Understood. Patient message only, no diagnosis.
 Now generate for:
 {prompt}"""
         
-        response = _client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',
+        response = generate_with_fallback(
+            _client,
             contents=full_prompt,
             config={
                 'temperature': 0.3,

@@ -10,6 +10,7 @@ NEW SYSTEM (March 2026):
 import os, json, re
 from typing import Optional, List, Dict
 from google import genai
+from .gemini_utils import generate_with_fallback
 
 # Initialize Gemini client
 _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -108,8 +109,8 @@ Target language: {target_language}
 Output (pure {target_language} only):"""
     
     try:
-        response = _client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',
+        response = generate_with_fallback(
+            _client,
             contents=prompt,
             config={
                 'temperature': 0.0,
@@ -192,8 +193,8 @@ Patient statement:
 Extract routing information as JSON:"""
     
     try:
-        response = _client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',
+        response = generate_with_fallback(
+            _client,
             contents=prompt,
             config={
                 'temperature': 0.0,
@@ -305,8 +306,8 @@ Patient conversation:
 Extract all clinical information as JSON:"""
     
     try:
-        response = _client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',
+        response = generate_with_fallback(
+            _client,
             contents=prompt,
             config={
                 'temperature': 0.0,

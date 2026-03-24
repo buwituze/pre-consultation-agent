@@ -4,6 +4,7 @@ models/model_c.py — Next-question selection wrapper.
 
 import os, re
 from google import genai
+from .gemini_utils import generate_with_fallback
 
 _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -98,8 +99,8 @@ Understood. One question only.
 
 {prompt}"""
     
-    response = _client.models.generate_content(
-        model='gemini-3.1-flash-lite-preview',
+    response = generate_with_fallback(
+        _client,
         contents=full_prompt,
         config={
             'temperature': 0.2,
