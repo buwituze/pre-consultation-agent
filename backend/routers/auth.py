@@ -252,8 +252,8 @@ def register(
             request.email,
             email_error,
         )
-    
-    return UserResponse(
+
+    response = UserResponse(
         user_id=user['user_id'],
         email=user['email'],
         full_name=user['full_name'],
@@ -262,6 +262,12 @@ def register(
         specialty=user.get('specialty'),
         is_active=user['is_active']
     )
+    # Surface email status so callers can see if delivery failed
+    return {
+        **response.model_dump(),
+        "email_sent": email_sent,
+        "email_error": email_error if not email_sent else None,
+    }
 
 
 @router.get("/me", response_model=UserResponse)
@@ -276,6 +282,41 @@ def get_me(current_user: dict = Depends(get_current_user)):
         specialty=current_user.get('specialty'),
         is_active=current_user['is_active']
     )
+
+
+@router.post("/test-email")
+def test_email(
+    current_user: dict = Depends(require_role("platform_admin")),
+):
+    """
+    Send a test credentials email to the platform admin's own address.
+    Use this to verify email configuration is working.
+    Returns the full error detail if sending fails.
+    """
+    recipient = current_user['email']
+    sent, error = send_credentials_email(
+        recipient_email=recipient,
+        recipient_name=current_user['full_name'],
+        username=recipient,
+        temporary_password="TestPassword123",
+        role=current_user['role'],
+    )
+    config_snapshot = {
+        "EMAIL_PROVIDER": os.getenv("EMAIL_PROVIDER", "(not set)"),
+        "EMAILJS_SERVICE_ID": os.getenv("EMAILJS_SERVICE_ID", "(not set)"),
+        "EMAILJS_TEMPLATE_ID": os.getenv("EMAILJS_TEMPLATE_ID", "(not set)"),
+        "EMAILJS_PUBLIC_KEY": os.getenv("EMAILJS_PUBLIC_KEY", "(not set)"),
+        "EMAILJS_PRIVATE_KEY": "(hidden)" if os.getenv("EMAILJS_PRIVATE_KEY") else "(not set)",
+        "SMTP_FROM_EMAIL": os.getenv("SMTP_FROM_EMAIL", "(not set)"),
+        "SMTP_FROM_NAME": os.getenv("SMTP_FROM_NAME", "(not set)"),
+        "APP_LOGIN_URL": os.getenv("APP_LOGIN_URL", "(not set)"),
+    }
+    return {
+        "sent": sent,
+        "recipient": recipient,
+        "error": error,
+        "config": config_snapshot,
+    }
 
 
 @router.get("/hospital-admins", response_model=list[UserResponse])

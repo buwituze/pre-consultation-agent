@@ -65,6 +65,12 @@ class QueueEntryResponse(BaseModel):
     required_exams: Optional[List[str]] = None
 
 
+class RoomQueueEntryResponse(QueueEntryResponse):
+    position: int
+    assigned_room_id: Optional[int] = None
+    assigned_doctor_id: Optional[int] = None
+
+
 MOCK_REQUIRED_EXAM_SETS = [
     [
         "Complete Blood Count (CBC)",
@@ -119,6 +125,55 @@ def _default_mock_exams(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.get("/room/{room_id}", response_model=list[RoomQueueEntryResponse])
+def get_room_queue(
+    room_id: int,
+    current_user: dict = Depends(require_role("doctor", "hospital_admin", "platform_admin")),
+):
+    """
+    Get active patients in a specific room, ordered by queue number.
+    Each entry includes a live `position` field (decreases as earlier patients complete).
+    """
+    entries = QueueDB.get_room_queue(room_id)
+    return [RoomQueueEntryResponse(**entry) for entry in entries]
+
+
+@router.post("/{queue_id}/complete")
+def complete_examination(
+    queue_id: int,
+    current_user: dict = Depends(require_role("doctor", "hospital_admin")),
+):
+    """
+    Mark an examination as completed (exam taken).
+    Doctors may only complete examinations assigned to them.
+    """
+    entry = QueueDB.get_queue_entry(queue_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Queue entry not found")
+
+    if entry['queue_status'] == 'completed':
+        raise HTTPException(status_code=400, detail="Examination is already completed")
+
+    if current_user['role'] == 'doctor':
+        worker_id = _get_worker_id_for_user(current_user['user_id'])
+        # v_queue_overview doesn't expose assigned_doctor_id — fetch raw row
+        with DatabaseConnection.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT assigned_doctor_id FROM examination_queue WHERE queue_id = %s",
+                    (queue_id,),
+                )
+                row = cur.fetchone()
+        if not row or row['assigned_doctor_id'] != worker_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only complete examinations assigned to you",
+            )
+
+    QueueDB.update_queue_status(queue_id, 'completed')
+    return {"message": "Examination marked as completed", "queue_id": queue_id}
+
 
 @router.get("", response_model=list[QueueEntryResponse])
 def get_facility_queue(

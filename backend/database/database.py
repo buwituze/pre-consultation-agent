@@ -640,11 +640,38 @@ class QueueDB:
     @staticmethod
     def get_doctor_queue(doctor_id: int) -> List[Dict]:
         query = """
-            SELECT * FROM v_queue_overview 
+            SELECT * FROM v_queue_overview
             WHERE assigned_doctor_id = (SELECT worker_id FROM healthcare_worker WHERE worker_id = %s)
             ORDER BY queue_number
         """
         return DatabaseConnection.execute_query(query, (doctor_id,))
+
+    @staticmethod
+    def get_room_queue(room_id: int) -> List[Dict]:
+        query = """
+            SELECT
+                q.queue_id, q.queue_number, q.queue_status,
+                q.queue_name, q.department, q.location_hint,
+                q.required_exams, q.assigned_room_id, q.assigned_doctor_id,
+                p.full_name AS patient_name, p.phone_number,
+                pred.risk_level, pred.predicted_condition,
+                hw.full_name AS doctor_name,
+                r.room_name,
+                f.name AS facility_name,
+                q.created_at, q.started_at, q.completed_at,
+                ROW_NUMBER() OVER (ORDER BY q.queue_number) AS position
+            FROM examination_queue q
+            JOIN patient p ON q.patient_id = p.patient_id
+            JOIN facility f ON q.facility_id = f.facility_id
+            LEFT JOIN session s ON q.session_id = s.session_id
+            LEFT JOIN prediction pred ON s.session_id = pred.session_id
+            LEFT JOIN healthcare_worker hw ON q.assigned_doctor_id = hw.worker_id
+            LEFT JOIN room r ON q.assigned_room_id = r.room_id
+            WHERE q.assigned_room_id = %s
+              AND q.queue_status NOT IN ('completed', 'cancelled')
+            ORDER BY q.queue_number
+        """
+        return DatabaseConnection.execute_query(query, (room_id,))
 
 
 class AudioDB:
