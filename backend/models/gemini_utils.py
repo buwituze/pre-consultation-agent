@@ -4,8 +4,8 @@ models/gemini_utils.py — Shared Gemini call helper with model fallback.
 
 _MODEL_STACK = [
     "models/gemini-3.1-flash-lite-preview",  # primary
-    "models/gemini-2.5-flash",               # secondary
-    "models/gemini-3.1-pro-preview",         # final fallback
+    "models/gemini-2.5-flash-lite",          # secondary backup
+    "models/gemini-2.5-flash",               # final backup model
 ]
 
 # Models that support thinking_config

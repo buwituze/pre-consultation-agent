@@ -13,7 +13,7 @@ class TTSService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isSpeaking = false;
 
-  static const String _voiceId = 'MM7UurcOvo1kicRwOKhr';
+  static const String _voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel — pre-made voice, free tier compatible
   static const String _modelId = 'eleven_multilingual_v2';
 
   String get _apiKey => dotenv.env['ELEVENLABS_API_KEY'] ?? '';
