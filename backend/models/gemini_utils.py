@@ -3,13 +3,13 @@ models/gemini_utils.py — Shared Gemini call helper with model fallback.
 """
 
 _MODEL_STACK = [
-    "gemini-3.1-flash-lite-preview",  # primary
-    "gemini-1.5-flash",                # secondary
-    "gemini-1.5-pro",                  # final fallback
+    "models/gemini-3.1-flash-lite-preview",  # primary
+    "models/gemini-2.5-flash",               # secondary
+    "models/gemini-3.1-pro-preview",         # final fallback
 ]
 
 # Models that support thinking_config
-_THINKING_MODELS = {"gemini-3.1-flash-lite-preview"}
+_THINKING_MODELS = {"models/gemini-3.1-flash-lite-preview"}
 
 
 def generate_with_fallback(client, contents, config: dict):
