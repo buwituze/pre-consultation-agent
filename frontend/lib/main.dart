@@ -11,6 +11,7 @@ import 'screens/all_patients.dart';
 import 'screens/all_doctors_page.dart';
 import 'screens/admin_users_page.dart';
 import 'screens/facilities_page.dart';
+import 'screens/hospital_admin_dashboard.dart';
 import 'services/kinyarwanda_material_localizations.dart';
 import 'services/kinyarwanda_cupertino_localizations.dart';
 import 'services/kinyarwanda_widgets_localizations.dart';
@@ -80,6 +81,16 @@ class _MyAppState extends State<MyApp> {
       case '/all-patients':
         return MaterialPageRoute(
           builder: (_) => const AllPatientsPage(),
+          settings: settings,
+        );
+      case '/hospital-admin':
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder:
+              (_) => HospitalAdminDashboard(
+                userRole: args?['userRole'] as String? ?? 'hospital_admin',
+                userName: args?['userName'] as String? ?? '',
+              ),
           settings: settings,
         );
       case '/all-doctors':

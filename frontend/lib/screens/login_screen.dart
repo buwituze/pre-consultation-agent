@@ -351,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role == 'doctor') {
         destinationRoute = '/all-patients';
       } else if (role == 'hospital_admin') {
-        destinationRoute = '/all-doctors';
+        destinationRoute = '/hospital-admin';
       } else if (role == 'platform_admin') {
         destinationRoute = '/facilities';
       } else {
