@@ -228,6 +228,29 @@ Widget _dataCell(
   );
 }
 
+// Returns true if `date` falls within [from, to] (inclusive, date-only).
+bool _inDateRange(DateTime? date, DateTime? from, DateTime? to) {
+  if (from == null && to == null) return true;
+  if (date == null) return false;
+  final d = DateTime(date.year, date.month, date.day);
+  if (from != null && d.isBefore(DateTime(from.year, from.month, from.day))) {
+    return false;
+  }
+  if (to != null && d.isAfter(DateTime(to.year, to.month, to.day))) {
+    return false;
+  }
+  return true;
+}
+
+String _fmtDate(DateTime? dt) {
+  if (dt == null) return '—';
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+}
+
 Widget _loadingBox() => Container(
   width: double.infinity,
   padding: const EdgeInsets.symmetric(vertical: 70),
@@ -333,8 +356,12 @@ class _DoctorsSectionState extends State<_DoctorsSection>
   String? _error;
   String _search = '';
   String _statusFilter = 'All';
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   static const List<String> _statusOptions = ['All', 'Active', 'Inactive'];
+
+  bool get _hasDateData => _doctors.any((d) => d.createdAt != null);
 
   @override
   bool get wantKeepAlive => true;
@@ -379,6 +406,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
   List<DoctorItem> get _filtered => _doctors.where((d) {
     if (_statusFilter == 'Active' && !d.isActive) return false;
     if (_statusFilter == 'Inactive' && d.isActive) return false;
+    if (!_inDateRange(d.createdAt, _dateFrom, _dateTo)) return false;
     if (_search.trim().isNotEmpty) {
       final q = _search.trim().toLowerCase();
       if (!d.fullName.toLowerCase().contains(q) &&
@@ -725,6 +753,18 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                   },
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: AdminDateRangeFilter(
+                  fromDate: _dateFrom,
+                  toDate: _dateTo,
+                  enabled: _hasDateData,
+                  unavailableLabel: 'Date added unavailable',
+                  onFromDateChanged: (d) => setState(() => _dateFrom = d),
+                  onToDateChanged: (d) => setState(() => _dateTo = d),
+                ),
+              ),
             ],
           ),
           if (_isRefreshing)
@@ -749,14 +789,15 @@ class _DoctorsSectionState extends State<_DoctorsSection>
 
   Widget _buildTable(List<DoctorItem> doctors) {
     return AdminTableShell(
-      minWidth: 1100,
+      minWidth: 1300,
       child: Table(
         columnWidths: const {
-          0: FlexColumnWidth(2.2),
-          1: FlexColumnWidth(2.6),
-          2: FlexColumnWidth(1.8),
+          0: FlexColumnWidth(2.0),
+          1: FlexColumnWidth(2.4),
+          2: FlexColumnWidth(1.6),
           3: FlexColumnWidth(1.2),
-          4: FlexColumnWidth(2.2),
+          4: FlexColumnWidth(1.6),
+          5: FlexColumnWidth(2.0),
         },
         border: TableBorder(
           horizontalInside: BorderSide(
@@ -776,6 +817,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
               _HeaderCell('Email'),
               _HeaderCell('Specialty'),
               _HeaderCell('Status'),
+              _HeaderCell('Added On'),
               _HeaderCell('Actions'),
             ],
           ),
@@ -790,6 +832,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                       : d.specialty!.trim(),
                 ),
                 _statusBadge(d.isActive),
+                _dataCell(_fmtDate(d.createdAt)),
                 _actions(d),
               ],
             ),
@@ -797,7 +840,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
           if (doctors.isEmpty)
             TableRow(
               children: List.generate(
-                5,
+                6,
                 (i) => i == 2
                     ? _dataCell(
                         'No doctors found for the current filters.',
@@ -899,6 +942,8 @@ class _PatientsSectionState extends State<_PatientsSection>
   String? _error;
   String _search = '';
   String _priorityFilter = 'All';
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   static const List<String> _priorityOptions = [
     'All',
@@ -906,6 +951,8 @@ class _PatientsSectionState extends State<_PatientsSection>
     'medium',
     'low',
   ];
+
+  bool get _hasDateData => _patients.any((p) => p.startTime != null);
 
   @override
   bool get wantKeepAlive => true;
@@ -950,6 +997,13 @@ class _PatientsSectionState extends State<_PatientsSection>
   List<PatientListItem> get _filtered => _patients.where((p) {
     if (_priorityFilter != 'All' &&
         (p.priority ?? '').toLowerCase() != _priorityFilter) {
+      return false;
+    }
+    if (!_inDateRange(
+      DateTime.tryParse(p.startTime ?? ''),
+      _dateFrom,
+      _dateTo,
+    )) {
       return false;
     }
     if (_search.trim().isNotEmpty) {
@@ -1071,6 +1125,18 @@ class _PatientsSectionState extends State<_PatientsSection>
                   onChanged: (v) {
                     if (v != null) setState(() => _priorityFilter = v);
                   },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: AdminDateRangeFilter(
+                  fromDate: _dateFrom,
+                  toDate: _dateTo,
+                  enabled: _hasDateData,
+                  unavailableLabel: 'Session date unavailable',
+                  onFromDateChanged: (d) => setState(() => _dateFrom = d),
+                  onToDateChanged: (d) => setState(() => _dateTo = d),
                 ),
               ),
             ],
@@ -1246,6 +1312,8 @@ class _RoomsSectionState extends State<_RoomsSection>
   String? _error;
   String _search = '';
   String _statusFilter = 'All';
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   static const List<String> _statusOptions = [
     'All',
@@ -1253,6 +1321,8 @@ class _RoomsSectionState extends State<_RoomsSection>
     'inactive',
     'maintenance',
   ];
+
+  bool get _hasDateData => _rooms.any((r) => r.createdAt != null);
 
   @override
   bool get wantKeepAlive => true;
@@ -1297,6 +1367,9 @@ class _RoomsSectionState extends State<_RoomsSection>
   List<RoomResponse> get _filtered => _rooms.where((r) {
     if (_statusFilter != 'All' &&
         r.status.toLowerCase() != _statusFilter) {
+      return false;
+    }
+    if (!_inDateRange(r.createdAt, _dateFrom, _dateTo)) {
       return false;
     }
     if (_search.trim().isNotEmpty) {
@@ -1675,6 +1748,18 @@ class _RoomsSectionState extends State<_RoomsSection>
                   },
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: AdminDateRangeFilter(
+                  fromDate: _dateFrom,
+                  toDate: _dateTo,
+                  enabled: _hasDateData,
+                  unavailableLabel: 'Date added unavailable',
+                  onFromDateChanged: (d) => setState(() => _dateFrom = d),
+                  onToDateChanged: (d) => setState(() => _dateTo = d),
+                ),
+              ),
             ],
           ),
           if (_isRefreshing)
@@ -1699,15 +1784,16 @@ class _RoomsSectionState extends State<_RoomsSection>
 
   Widget _buildTable(List<RoomResponse> rooms) {
     return AdminTableShell(
-      minWidth: 1060,
+      minWidth: 1260,
       child: Table(
         columnWidths: const {
-          0: FlexColumnWidth(2.2),
-          1: FlexColumnWidth(1.6),
-          2: FlexColumnWidth(0.8),
+          0: FlexColumnWidth(2.0),
+          1: FlexColumnWidth(1.4),
+          2: FlexColumnWidth(0.7),
           3: FlexColumnWidth(0.8),
-          4: FlexColumnWidth(1.2),
-          5: FlexColumnWidth(2.4),
+          4: FlexColumnWidth(1.1),
+          5: FlexColumnWidth(1.5),
+          6: FlexColumnWidth(2.2),
         },
         border: TableBorder(
           horizontalInside: BorderSide(
@@ -1728,6 +1814,7 @@ class _RoomsSectionState extends State<_RoomsSection>
               _HeaderCell('Floor'),
               _HeaderCell('Capacity'),
               _HeaderCell('Status'),
+              _HeaderCell('Added On'),
               _HeaderCell('Actions'),
             ],
           ),
@@ -1739,6 +1826,7 @@ class _RoomsSectionState extends State<_RoomsSection>
                 _dataCell(r.floorNumber?.toString() ?? '—'),
                 _dataCell(r.capacity.toString()),
                 _statusBadge(r.status),
+                _dataCell(_fmtDate(r.createdAt)),
                 _roomActions(r),
               ],
             ),
@@ -1746,7 +1834,7 @@ class _RoomsSectionState extends State<_RoomsSection>
           if (rooms.isEmpty)
             TableRow(
               children: List.generate(
-                6,
+                7,
                 (i) => i == 2
                     ? _dataCell(
                         'No rooms found for the current filters.',

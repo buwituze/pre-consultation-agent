@@ -1439,6 +1439,7 @@ class RoomResponse {
   final String status;
   final int? floorNumber;
   final int capacity;
+  final DateTime? createdAt;
 
   RoomResponse({
     required this.roomId,
@@ -1448,6 +1449,7 @@ class RoomResponse {
     required this.status,
     this.floorNumber,
     required this.capacity,
+    this.createdAt,
   });
 
   factory RoomResponse.fromJson(Map<String, dynamic> json) {
@@ -1459,6 +1461,7 @@ class RoomResponse {
       status: json['status'],
       floorNumber: json['floor_number'],
       capacity: json['capacity'],
+      createdAt: _parseOptionalDateTime(json['created_at']),
     );
   }
 }
@@ -1557,6 +1560,7 @@ class DoctorItem {
   final String? specialty;
   final int? facilityId;
   final bool isActive;
+  final DateTime? createdAt;
 
   DoctorItem({
     required this.userId,
@@ -1565,6 +1569,7 @@ class DoctorItem {
     this.specialty,
     this.facilityId,
     required this.isActive,
+    this.createdAt,
   });
 
   factory DoctorItem.fromJson(Map<String, dynamic> json) {
@@ -1575,6 +1580,7 @@ class DoctorItem {
       specialty: json['specialty'],
       facilityId: json['facility_id'],
       isActive: json['is_active'] ?? true,
+      createdAt: _parseOptionalDateTime(json['created_at']),
     );
   }
 }

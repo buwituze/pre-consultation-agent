@@ -9,6 +9,7 @@ DELETE /facilities/{id}        → delete facility (platform admin, with permiss
 """
 
 from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 
@@ -56,6 +57,7 @@ class FacilityResponse(BaseModel):
     total_rooms: int
     active_rooms: int
     is_active: bool
+    created_at: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------

@@ -132,6 +132,7 @@ class DoctorResponse(BaseModel):
     specialty: Optional[str]
     facility_id: Optional[int]
     is_active: bool
+    created_at: Optional[datetime] = None
 
 
 class DoctorRegistrationPendingResponse(BaseModel):

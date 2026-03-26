@@ -64,6 +64,7 @@ class RoomResponse(BaseModel):
     status: str
     floor_number: Optional[int]
     capacity: int
+    created_at: Optional[datetime] = None
 
 
 class RoomActionPendingResponse(BaseModel):
