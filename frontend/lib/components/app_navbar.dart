@@ -198,9 +198,19 @@ class _AppNavBarState extends State<AppNavBar> {
 
                 // Dropdown menu for Profile and Logout
                 PopupMenuButton<String>(
-                  onSelected: (value) {
+                  onSelected: (value) async {
                     if (value == 'Logout') {
-                      widget.onLogout?.call();
+                      if (widget.onLogout != null) {
+                        widget.onLogout!();
+                      } else {
+                        await ApiService.logout();
+                        if (context.mounted) {
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            '/login',
+                            (route) => false,
+                          );
+                        }
+                      }
                     }
                   },
                   offset: const Offset(0, 40),

@@ -6,15 +6,15 @@ import 'package:http/http.dart' as http;
 
 /// ElevenLabs Text-to-Speech service.
 ///
-/// Uses the "Keza — Rwandan Diaspora" voice (multilingual v2).
+/// Uses the "Keza — Rwandan Diaspora" voice (turbo v2.5).
 /// Handles both Kinyarwanda and English.
 /// API key loaded from frontend/.env → ELEVENLABS_API_KEY
 class TTSService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isSpeaking = false;
 
-  static const String _voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel — pre-made voice, free tier compatible
-  static const String _modelId = 'eleven_multilingual_v2';
+  static const String _voiceId = 'MM7UurcOvo1kicRwOKhr'; // Keza — Rwandan Diaspora, free tier compatible
+  static const String _modelId = 'eleven_turbo_v2_5';
 
   String get _apiKey => dotenv.env['ELEVENLABS_API_KEY'] ?? '';
 
