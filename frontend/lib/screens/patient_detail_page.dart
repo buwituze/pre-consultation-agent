@@ -343,6 +343,16 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             ],
             activeItem: 'All Patients',
             onSettingsTap: () {},
+            onPatientTap: (id) => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PatientDetailPage(
+                  userRole: widget.userRole,
+                  userName: widget.userName,
+                  userSpecialty: widget.userSpecialty,
+                  initialPatientId: id,
+                ),
+              ),
+            ),
           ),
           Expanded(
             child: LayoutBuilder(

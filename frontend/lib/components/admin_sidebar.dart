@@ -7,7 +7,7 @@ class AdminSidebar extends StatelessWidget {
   const AdminSidebar({Key? key, required this.activeItem, this.onItemSelected})
     : super(key: key);
 
-  static const Color _primaryGreen = Color.fromARGB(255, 59, 71, 5);
+  static const Color _activeGreen = Color(0xFF8B9E3A);
 
   static const List<_AdminMenuItem> _menuItems = [
     _AdminMenuItem(label: 'Users', icon: Icons.people_alt_outlined),
@@ -20,64 +20,81 @@ class AdminSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 250,
-      color: _primaryGreen,
+      color: Colors.white,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                ),
+              ),
+              child: const Text(
                 'Eleza Admin Panel',
                 style: TextStyle(
-                  color: Color.fromRGBO(255, 255, 255, 1),
-                  fontSize: 20,
+                  color: Colors.black,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 20),
-              ..._menuItems.map((item) {
-                final isActive = item.label == activeItem;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Material(
-                    color: isActive ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => onItemSelected?.call(item.label),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              item.icon,
-                              color: isActive ? _primaryGreen : Colors.white,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              item.label,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight:
-                                    isActive
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                color: isActive ? _primaryGreen : Colors.white,
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ..._menuItems.map((item) {
+                      final isActive = item.label == activeItem;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Material(
+                          color: isActive ? _activeGreen : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => onItemSelected?.call(item.label),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 11,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    item.icon,
+                                    size: 20,
+                                    color: isActive ? Colors.black : Colors.black54,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    item.label,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight:
+                                          isActive
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                      color: isActive ? Colors.black : Colors.black87,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

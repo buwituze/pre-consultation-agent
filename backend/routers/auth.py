@@ -67,6 +67,7 @@ class UserResponse(BaseModel):
     facility_id: Optional[int]
     specialty: Optional[str] = None
     is_active: bool
+    created_at: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------

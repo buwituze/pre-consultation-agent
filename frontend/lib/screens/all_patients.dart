@@ -308,6 +308,16 @@ class _AllPatientsPageState extends State<AllPatientsPage> {
             currentUserName: _currentUserName,
             currentUserRole: _currentUserRole,
             currentUserSpecialty: _currentUserSpecialty,
+            onPatientTap: (id) => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PatientDetailPage(
+                  userRole: _normalizedRole(_currentUserRole),
+                  userName: _currentUserName,
+                  userSpecialty: _currentUserSpecialty,
+                  initialPatientId: id,
+                ),
+              ),
+            ),
             navItems: [
               NavBarItem(label: 'All Patients', onTap: () {}),
               NavBarItem(

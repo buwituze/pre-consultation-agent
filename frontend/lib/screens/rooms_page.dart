@@ -5,6 +5,7 @@ import '../components/admin_ui.dart';
 import '../components/app_navbar.dart';
 import '../services/api_service.dart';
 import 'all_patients.dart';
+import 'patient_detail_page.dart';
 
 class RoomsPage extends StatefulWidget {
   final String userRole;
@@ -721,6 +722,24 @@ class _RoomsPageState extends State<RoomsPage> {
                   : const [],
           activeItem: 'Rooms',
           onSettingsTap: () {},
+          onPatientTap: (id) {
+            final role = _effectiveUserRole.trim().isEmpty
+                ? widget.userRole
+                : _effectiveUserRole;
+            final name = _effectiveUserName.trim().isEmpty
+                ? widget.userName
+                : _effectiveUserName;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PatientDetailPage(
+                  userRole: role,
+                  userName: name,
+                  userSpecialty: _effectiveUserSpecialty ?? widget.userSpecialty,
+                  initialPatientId: id,
+                ),
+              ),
+            );
+          },
         ),
         Expanded(
           child: SingleChildScrollView(

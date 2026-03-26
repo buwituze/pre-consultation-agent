@@ -4,6 +4,7 @@ import '../components/admin_sidebar.dart';
 import '../components/admin_ui.dart';
 import '../components/app_navbar.dart';
 import '../services/api_service.dart';
+import 'patient_detail_page.dart';
 import 'rooms_page.dart';
 
 class AdminUsersPage extends StatefulWidget {
@@ -574,6 +575,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   navItems: const [],
                   activeItem: 'Users',
                   onSettingsTap: () {},
+                  onPatientTap: (id) => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PatientDetailPage(
+                        userRole: widget.userRole,
+                        userName: widget.userName,
+                        initialPatientId: id,
+                      ),
+                    ),
+                  ),
                 ),
                 Expanded(
                   child: SingleChildScrollView(

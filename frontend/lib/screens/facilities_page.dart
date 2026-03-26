@@ -6,6 +6,7 @@ import '../components/admin_sidebar.dart';
 import '../components/admin_ui.dart';
 import '../components/app_navbar.dart';
 import '../screens/facility_detail_page.dart';
+import '../screens/patient_detail_page.dart';
 import '../screens/rooms_page.dart';
 import '../services/api_service.dart';
 
@@ -727,6 +728,15 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
                   navItems: const [],
                   activeItem: 'Facilities',
                   onSettingsTap: () {},
+                  onPatientTap: (id) => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PatientDetailPage(
+                        userRole: widget.userRole,
+                        userName: widget.userName,
+                        initialPatientId: id,
+                      ),
+                    ),
+                  ),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
