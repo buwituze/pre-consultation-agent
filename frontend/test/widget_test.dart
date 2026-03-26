@@ -1,30 +1,60 @@
-// This is a basic Flutter widget test.
+// Widget tests for AllDoctorsPage.
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Run from frontend/:
+//   flutter test
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:frontend/main.dart';
+import 'package:frontend/screens/all_doctors_page.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  // AllDoctorsPage is a desktop admin UI — use a wide viewport for all tests.
+  setUp(() {});
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets(
+    'AllDoctorsPage shows a loading indicator on first render',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AllDoctorsPage(
+            userRole: 'platform_admin',
+            userName: 'Test Admin',
+          ),
+        ),
+      );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+      // First frame: _isLoading is true → spinner must be visible
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'AllDoctorsPage renders page title and Refresh button',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AllDoctorsPage(
+            userRole: 'platform_admin',
+            userName: 'Test Admin',
+          ),
+        ),
+      );
+
+      // These widgets are in the page header — always rendered regardless of
+      // loading / error / data state, so no async settling needed.
+      expect(
+        find.text('All doctors with their hospital assignment.'),
+        findsOneWidget,
+      );
+      expect(find.text('Refresh'), findsOneWidget);
+    },
+  );
 }
