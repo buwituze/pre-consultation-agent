@@ -35,7 +35,7 @@ def _smtp_settings() -> dict:
         "use_tls": os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"},
         "use_ssl": os.getenv("SMTP_USE_SSL", "false").lower() in {"1", "true", "yes"},
         "from_email": os.getenv("SMTP_FROM_EMAIL", "").strip(),
-        "from_name": os.getenv("SMTP_FROM_NAME", "Operations Team").strip() or "Operations Team",
+        "from_name": os.getenv("SMTP_FROM_NAME", "Eleza: Pre-Consultation System").strip() or "Eleza: Pre-Consultation System",
     }
 
 
@@ -225,10 +225,10 @@ def send_credentials_email(
     role: str,
 ) -> Tuple[bool, Optional[str]]:
     role_label = role.replace("_", " ").title()
-    login_url = os.getenv("APP_LOGIN_URL", "http://localhost:3000/login").strip()
+    docs_url = "https://docs.google.com/document/d/1L7akwuVblVjF3qT9KvelafrLFj8jy8IitRrJA13BL7k/edit?usp=sharing"
 
     body_html = f"""
-<p style=\"margin:0 0 12px 0;\">Your account has been provisioned with the details below:</p>
+<p style=\"margin:0 0 12px 0;\">Your account on <strong>Eleza: Pre-Consultation System</strong> has been provisioned with the details below:</p>
 <table cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;margin:0 0 12px 0;font-size:14px;\">
   <tr>
     <td style=\"padding:6px 10px;border:1px solid #e2e2e2;background:#fbfbfb;font-weight:600;\">Role</td>
@@ -243,11 +243,11 @@ def send_credentials_email(
     <td style=\"padding:6px 10px;border:1px solid #e2e2e2;\">{temporary_password}</td>
   </tr>
 </table>
-<p style=\"margin:0 0 12px 0;color:#222;\"><strong>Action required:</strong> Please sign in and change your password immediately after your first login.</p>
+<p style=\"margin:0 0 12px 0;color:#222;\"><strong>Action required:</strong> Download the Eleza app using the link below and sign in with the credentials above. Please change your password after your first login.</p>
 <p style=\"margin:0 0 16px 0;\">
-  <a href=\"{login_url}\" style=\"display:inline-block;padding:10px 16px;background:{_THEME_GREEN};color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;\">Open Login Page</a>
+  <a href=\"{docs_url}\" style=\"display:inline-block;padding:10px 16px;background:{_THEME_GREEN};color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;\">Get the Eleza App</a>
 </p>
-<p style=\"margin:0 0 12px 0;\">If the button does not open, use this link: {login_url}</p>
+<p style=\"margin:0 0 12px 0;\">If the button does not open, copy this link: {docs_url}</p>
 <p style=\"margin:0;\">If you were not expecting this account setup, please contact your organization administrator.</p>
 """
 
@@ -255,17 +255,17 @@ def send_credentials_email(
         title="Account Access Details",
         greeting=f"Dear {recipient_name},",
         body_html=body_html,
-        footer_text="This is an official business communication from your operations team.",
+        footer_text="This is an official communication from Eleza: Pre-Consultation System.",
     )
 
     text = (
         f"Dear {recipient_name},\n\n"
-        "Your account has been provisioned.\n"
+        "Your account on Eleza: Pre-Consultation System has been provisioned.\n"
         f"Role: {role_label}\n"
         f"Username: {username}\n"
         f"Temporary Password: {temporary_password}\n\n"
-        f"Login URL: {login_url}\n\n"
-        "Please sign in and change your password immediately after your first login.\n"
+        f"Download the Eleza app here: {docs_url}\n\n"
+        "Please download the app, sign in, and change your password after your first login.\n"
         "If you were not expecting this account setup, contact your organization administrator.\n"
     )
 
