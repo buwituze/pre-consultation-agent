@@ -41,6 +41,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   final TTSService _ttsService = TTSService();
 
   static const Color _buttonGreen = Color(0xFFB2B24B);
+  static const bool _showGifArea = true;
 
   @override
   void initState() {
@@ -148,7 +149,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       await _audioService.startRecording();
       setState(() => _isRecording = true);
       _updateStatusMessage();
-      debugPrint('✅ Recording started successfully');
+      debugPrint('Recording started successfully');
     } catch (e) {
       debugPrint('❌ Recording failed: $e');
       _showError('Recording failed: $e');
@@ -158,11 +159,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
   Future<void> _stopRecordingAndSubmit() async {
     if (!_audioService.isRecording || _sessionId == null) {
-      debugPrint('⚠️ Cannot stop recording - not recording or no session');
+      debugPrint('Cannot stop recording - not recording or no session');
       return;
     }
 
-    debugPrint('⏹️ Stopping recording...');
+    debugPrint('Stopping recording...');
     setState(() {
       _isRecording = false;
       _isProcessing = true;
@@ -171,7 +172,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
     try {
       final audioFile = await _audioService.stopRecording();
-      debugPrint('📁 Audio file received: ${audioFile?.path}');
+      debugPrint('Audio file received: ${audioFile?.path}');
 
       if (audioFile == null) {
         _showError('no_audio_recorded'.tr());
@@ -259,10 +260,10 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       );
 
       if (response.coverageComplete) {
-        debugPrint('✅ Coverage complete, finishing session...');
+        debugPrint('Coverage complete, finishing session...');
         await _finishSession();
       } else {
-        debugPrint('📝 Next question: ${response.question}');
+        debugPrint('Next question: ${response.question}');
         setState(() {
           _currentQuestion = response.question;
           _sessionState = SessionState.waitingForAnswer;
@@ -418,7 +419,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
   Color _getButtonColor() {
     if (_isProcessing) return const Color.fromARGB(255, 180, 180, 96);
-    if (_isRecording) return const Color.fromARGB(255, 241, 241, 113);
+    if (_isRecording) return const Color.fromARGB(255, 243, 188, 48);
     return _buttonGreen;
   }
 
@@ -437,7 +438,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 32),
 
                       // Welcome message
                       Text(
@@ -450,41 +451,40 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Instruction text (centered) + Language switcher beside it
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Center(
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 16,
-                            runSpacing: 12,
-                            children: [
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 820,
-                                ),
-                                child: Text(
-                                  'instruction'.tr(),
-                                  style: const TextStyle(
-                                    fontSize: 19,
-                                    color: Color.fromARGB(255, 0, 0, 0),
-                                  ),
-                                  textAlign: TextAlign.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 200),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Opacity(
+                              opacity: 0,
+                              child: IgnorePointer(
+                                child: LanguageDropdown(
+                                  currentLanguage: context.locale.languageCode,
+                                  onLanguageChange: (_) {},
                                 ),
                               ),
-                              LanguageDropdown(
-                                currentLanguage: context.locale.languageCode,
-                                onLanguageChange: (String languageCode) {
-                                  context.setLocale(Locale(languageCode));
-                                },
+                            ),
+                            Expanded(
+                              child: Text(
+                                'instruction'.tr(),
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  color: Color.fromARGB(255, 0, 0, 0),
+                                ),
+                                textAlign: TextAlign.center,
                               ),
-                            ],
-                          ),
+                            ),
+                            LanguageDropdown(
+                              currentLanguage: context.locale.languageCode,
+                              onLanguageChange: (String languageCode) {
+                                context.setLocale(Locale(languageCode));
+                              },
+                            ),
+                          ],
                         ),
                       ),
 
-                      // Patient info display (plain text, no background/border)
                       if (_isSessionActive &&
                           (_patientName.isNotEmpty || _patientPhone.isNotEmpty))
                         Padding(
@@ -501,7 +501,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                                   style: const TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF003366),
+                                    color: Color(0xFFB8860B),
                                   ),
                                 ),
                               if (_patientPhone.isNotEmpty)
@@ -510,14 +510,14 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                                   style: const TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF003366),
+                                    color: Color(0xFFB8860B),
                                   ),
                                 ),
                             ],
                           ),
                         ),
 
-                      const Spacer(flex: 2),
+                      const Spacer(flex: 1),
 
                       // Microphone indicator
                       MicrophoneIndicator(
@@ -533,21 +533,24 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF003366,
+                              color: const Color.fromARGB(
+                                192,
+                                178,
+                                178,
+                                75,
                               ).withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: const Color(
-                                  0xFF003366,
-                                ).withValues(alpha: 0.15),
+                                  0xFFB2B24B,
+                                ).withValues(alpha: 0.2),
                               ),
                             ),
                             child: Text(
                               _currentQuestion!,
                               style: const TextStyle(
                                 fontSize: 16,
-                                color: Color(0xFF003366),
+                                color: Color.fromARGB(255, 0, 0, 0),
                                 height: 1.4,
                               ),
                               textAlign: TextAlign.center,
@@ -580,7 +583,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
 
                       // Main action button (wide rectangle)
                       Center(
@@ -624,7 +627,40 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                           ),
                         ),
                       ),
-                      const Spacer(flex: 1),
+                      // GIF area — hidden until asset is ready; re-enable by
+                      // removing the `false &&` below and adding the Image.asset.
+                      if (_showGifArea) ...[
+                        const SizedBox(height: 12),
+                        Center(
+                          child: SizedBox(
+                            width: 400,
+                            height: 130,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                'assets/voice-interface.gif',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      // Health-only disclaimer
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          'Eleza can only help with health-related questions and answers. ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -654,23 +690,23 @@ class LanguageDropdown extends StatelessWidget {
   }
 
   Widget _buildLanguageBadge(String code) {
-    final label = code.toUpperCase();
+    // Flag emojis work offline (rendered by device font system).
+    // Fallback text labels are used if the flag emoji is unavailable.
+    final flagEmoji = code == 'rw' ? '🇷🇼' : '🇬🇧';
+    final fallbackLabel = code == 'rw' ? 'RW' : 'EN';
     return Container(
       width: 34,
-      height: 24,
+      height: 32,
+      clipBehavior: Clip.none,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: const Color(0xFFF1F3F5),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(27),
       ),
       child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Colors.black87,
-          letterSpacing: 0.4,
-        ),
+        flagEmoji,
+        style: const TextStyle(fontSize: 18),
+        semanticsLabel: fallbackLabel,
       ),
     );
   }
@@ -678,10 +714,10 @@ class LanguageDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: 12, top: 6, bottom: 6, right: 4),
+      padding: const EdgeInsets.only(left: 12, top: 0, bottom: 0, right: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade400, width: 1),
       ),
       child: DropdownButton<String>(
@@ -695,7 +731,7 @@ class LanguageDropdown extends StatelessWidget {
             size: 22,
           ),
         ),
-        isDense: true,
+        isDense: false,
         borderRadius: BorderRadius.circular(16),
         dropdownColor: Colors.white,
         selectedItemBuilder: (BuildContext context) {

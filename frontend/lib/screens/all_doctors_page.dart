@@ -192,15 +192,17 @@ class _AllDoctorsPageState extends State<AllDoctorsPage> {
                   navItems: const [],
                   activeItem: 'Doctors',
                   onSettingsTap: () {},
-                  onPatientTap: (id) => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PatientDetailPage(
-                        userRole: widget.userRole,
-                        userName: widget.userName,
-                        initialPatientId: id,
+                  onPatientTap:
+                      (id) => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (_) => PatientDetailPage(
+                                userRole: widget.userRole,
+                                userName: widget.userName,
+                                initialPatientId: id,
+                              ),
+                        ),
                       ),
-                    ),
-                  ),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
