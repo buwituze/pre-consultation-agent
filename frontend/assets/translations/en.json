@@ -27,5 +27,6 @@
   "continue_text": "Continue",
   "cancel": "Cancel",
   "status_start_hint": "Click the button below to start",
-  "status_end_hint": "Click the button when you're done"
+  "status_end_hint": "Click the button when you're done",
+  "health_disclaimer": "Eleza can only help with health-related questions and answers."
 }

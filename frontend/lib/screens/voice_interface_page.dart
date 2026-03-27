@@ -33,7 +33,13 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   // UI state
   bool _isRecording = false;
   bool _isProcessing = false;
-  String _statusMessage = '';
+  String get _statusMessage {
+    if (_isProcessing) return 'processing'.tr();
+    if (_isRecording) return 'listening'.tr();
+    if (_ttsService.isSpeaking) return 'speaking'.tr();
+    if (_isSessionActive) return 'status_end_hint'.tr();
+    return 'status_start_hint'.tr();
+  }
 
   // Services
   final ApiService _apiService = ApiService();
@@ -60,19 +66,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       context.locale.languageCode == 'rw' ? 'kinyarwanda' : 'english';
 
   void _updateStatusMessage() {
-    setState(() {
-      if (_isProcessing) {
-        _statusMessage = 'processing'.tr();
-      } else if (_isRecording) {
-        _statusMessage = 'listening'.tr();
-      } else if (_ttsService.isSpeaking) {
-        _statusMessage = 'speaking'.tr();
-      } else if (_isSessionActive) {
-        _statusMessage = 'status_end_hint'.tr();
-      } else {
-        _statusMessage = 'status_start_hint'.tr();
-      }
-    });
+    setState(() {});
   }
 
   // ==================== SESSION MANAGEMENT ====================
@@ -627,19 +621,18 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                           ),
                         ),
                       ),
-                      // GIF area — hidden until asset is ready; re-enable by
-                      // removing the `false &&` below and adding the Image.asset.
+
                       if (_showGifArea) ...[
                         const SizedBox(height: 12),
                         Center(
                           child: SizedBox(
-                            width: 400,
-                            height: 130,
+                            width: 260,
+                            height: 150,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.asset(
                                 'assets/voice-interface.gif',
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
@@ -651,7 +644,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 40),
                         child: Text(
-                          'Eleza can only help with health-related questions and answers. ',
+                          'health_disclaimer'.tr(),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
