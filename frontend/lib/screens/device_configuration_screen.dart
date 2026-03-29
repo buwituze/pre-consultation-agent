@@ -24,13 +24,10 @@ class _DeviceConfigurationScreenState extends State<DeviceConfigurationScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Hospital logo/icon
-                Container(
-                  width: 120,
+                Image.asset(
+                  'assets/images/full-logo.png',
                   height: 120,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEDEBEB),
-                    shape: BoxShape.circle,
-                  ),
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 40),
 

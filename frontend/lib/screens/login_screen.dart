@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../components/app_logo_badge.dart';
 import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -315,7 +314,11 @@ class _LoginScreenState extends State<LoginScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppLogoBadge(size: 60, padding: 12, borderWidth: 1),
+          Image.asset(
+            'assets/images/full-logo.png',
+            height: 60,
+            fit: BoxFit.contain,
+          ),
           const SizedBox(height: 32),
           const Text(
             'Better care\nstarts here.',

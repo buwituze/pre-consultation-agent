@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'app_logo_badge.dart';
 import '../services/api_service.dart';
 
 class AppNavBar extends StatefulWidget {
@@ -229,7 +228,11 @@ class _AppNavBarState extends State<AppNavBar> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
             child: Row(
               children: [
-                const AppLogoBadge(size: 48),
+                Image.asset(
+                  'assets/images/navbar logo.png',
+                  height: 40,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(width: 16),
 
                 // Global search bar
