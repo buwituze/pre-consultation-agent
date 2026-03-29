@@ -17,6 +17,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
   bool _obscurePassword = true;
 
+  static const Color _green = Color(0xFF8B9E3A);
+
   @override
   void initState() {
     super.initState();
@@ -39,274 +41,329 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ColoredBox(
-        color: Colors.white,
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final contentWidth =
-                  constraints.maxWidth > 600
-                      ? 600.0
-                      : constraints.maxWidth * 0.9;
-
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: constraints.maxWidth,
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: contentWidth,
-                        child: Column(
-                          children: [
-                            const AppLogoBadge(
-                              size: 100,
-                              padding: 16,
-                              borderWidth: 1,
-                            ),
-
-                            const SizedBox(height: 40),
-
-                            // Welcome text
-                            const Text(
-                              'Log into your account',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                                letterSpacing: 1.0,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            Text(
-                              'Access the patient management dashboard',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.black.withAlpha(
-                                  (0.7 * 255).toInt(),
-                                ),
-                                fontWeight: FontWeight.w400,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-
-                            const SizedBox(height: 50),
-
-                            // Login form - keep current content width, centered in the page
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withAlpha(
-                                      (0.05 * 255).toInt(),
-                                    ),
-                                    blurRadius: 10,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  // Email field
-                                  TextField(
-                                    controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    decoration: InputDecoration(
-                                      labelText: 'Email Address',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey[300]!,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color.fromARGB(
-                                            255,
-                                            180,
-                                            180,
-                                            96,
-                                          ),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 20),
-
-                                  // Password field
-                                  TextField(
-                                    controller: _passwordController,
-                                    obscureText: _obscurePassword,
-                                    decoration: InputDecoration(
-                                      labelText: 'Password',
-                                      suffixIcon: IconButton(
-                                        icon: Icon(
-                                          _obscurePassword
-                                              ? Icons.visibility_off_outlined
-                                              : Icons.visibility_outlined,
-                                          color: Colors.grey[600],
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _obscurePassword =
-                                                !_obscurePassword;
-                                          });
-                                        },
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey[300]!,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color.fromARGB(
-                                            255,
-                                            180,
-                                            180,
-                                            96,
-                                          ),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Remember me checkbox
-                                  Row(
-                                    children: [
-                                      Checkbox(
-                                        value: _rememberMe,
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _rememberMe = value ?? false;
-                                          });
-                                        },
-                                        activeColor: const Color.fromARGB(
-                                          255,
-                                          180,
-                                          180,
-                                          96,
-                                        ),
-                                      ),
-                                      const Text(
-                                        'Remember me',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 24),
-
-                                  // Login button
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 50,
-                                    child: ElevatedButton(
-                                      onPressed: _isLoading ? null : _login,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(
-                                          255,
-                                          180,
-                                          180,
-                                          96,
-                                        ),
-                                        foregroundColor: Colors.black,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        elevation: 2,
-                                        splashFactory: NoSplash.splashFactory,
-                                        overlayColor: Colors.transparent,
-                                      ),
-                                      child:
-                                          _isLoading
-                                              ? const SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                        Color
-                                                      >(Colors.black),
-                                                ),
-                                              )
-                                              : const Text(
-                                                'Login',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Back to configuration button
-                                  TextButton(
-                                    onPressed: _backToConfiguration,
-                                    child: const Text(
-                                      'Change Device Configuration',
-                                      style: TextStyle(
-                                        color: Color.fromARGB(
-                                          255,
-                                          180,
-                                          180,
-                                          96,
-                                        ),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 40),
-                          ],
-                        ),
-                      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 800;
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(child: _buildLoginPanel()),
+                  Expanded(child: _buildInfoPanel()),
+                ],
+              );
+            }
+            // Narrow: single centered column
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 40,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: _buildFormContent(),
                     ),
                   ),
                 ),
-              );
-            },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginPanel() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 48),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: _buildFormContent(),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFormContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Welcome back',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Sign in to your account',
+          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+        ),
+
+        const SizedBox(height: 36),
+
+        // Email
+        const Text(
+          'Email address',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          style: const TextStyle(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'you@example.com',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: _green, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 13,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Password
+        const Text(
+          'Password',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          style: const TextStyle(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: '••••••••',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: Colors.grey[500],
+                size: 20,
+              ),
+              onPressed: () {
+                setState(() {
+                  _obscurePassword = !_obscurePassword;
+                });
+              },
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: _green, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 13,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Remember me
+        Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Checkbox(
+                value: _rememberMe,
+                onChanged: (value) {
+                  setState(() {
+                    _rememberMe = value ?? false;
+                  });
+                },
+                activeColor: _green,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Remember me',
+              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 28),
+
+        // Login button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _login,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: Colors.transparent,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text(
+                    'Sign in',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Back to configuration
+        Center(
+          child: TextButton(
+            onPressed: _backToConfiguration,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey[500],
+              overlayColor: Colors.transparent,
+            ),
+            child: const Text(
+              'Change Device Configuration',
+              style: TextStyle(fontSize: 13),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoPanel() {
+    const Color panelGreen = Color(0xFF8B9E3A);
+    const Color panelBg = Color(0xFFF0F4E8);
+
+    final features = [
+      (
+        'AI-powered pre-consultation forms',
+        Icons.auto_awesome_outlined,
+      ),
+      (
+        'Smart priority triage for patients',
+        Icons.sort_outlined,
+      ),
+      (
+        'Multi-role access for your entire team',
+        Icons.group_outlined,
+      ),
+    ];
+
+    return Container(
+      color: panelBg,
+      padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AppLogoBadge(size: 60, padding: 12, borderWidth: 1),
+          const SizedBox(height: 32),
+          const Text(
+            'Better care\nstarts here.',
+            style: TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Streamline patient intake, prioritize care,\nand collaborate across your whole team.',
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.grey[600],
+              height: 1.65,
+            ),
+          ),
+          const SizedBox(height: 44),
+          ...features.map(
+            (f) => Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: panelGreen.withAlpha(38),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(f.$2, size: 18, color: panelGreen),
+                  ),
+                  const SizedBox(width: 14),
+                  Text(
+                    f.$1,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -355,7 +412,6 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (role == 'platform_admin') {
         destinationRoute = '/facilities';
       } else {
-        // Fallback: doctors view
         destinationRoute = '/all-patients';
       }
 

@@ -798,7 +798,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
                               label: const Text('Add Facility'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _primaryGreen,
-                                foregroundColor: Colors.white,
+                                foregroundColor: Colors.black,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 12,

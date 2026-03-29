@@ -226,10 +226,10 @@ class _AppNavBarState extends State<AppNavBar> {
                 width: 0.8,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
             child: Row(
               children: [
-                const AppLogoBadge(size: 60),
+                const AppLogoBadge(size: 48),
                 const SizedBox(width: 16),
 
                 // Global search bar
@@ -326,7 +326,7 @@ class _AppNavBarState extends State<AppNavBar> {
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
-                    vertical: 9,
+                    vertical: 5,
                   ),
                   decoration: const BoxDecoration(color: Colors.white),
                   child: Row(

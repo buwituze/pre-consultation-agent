@@ -65,13 +65,18 @@ class _PatientSidebarState extends State<PatientSidebar> {
       width: 280,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 1)),
+        border: const Border(
+          right: BorderSide(
+            color: Color.fromARGB(255, 129, 129, 129),
+            width: 0.8,
+          ),
+        ),
       ),
       child: Column(
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Colors.grey[200]!, width: 1),
