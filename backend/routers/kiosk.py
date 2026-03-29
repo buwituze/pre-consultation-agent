@@ -23,6 +23,7 @@ Data persistence:
 """
 
 import os
+import re
 import asyncio
 import uuid
 from pathlib import Path
@@ -103,9 +104,17 @@ class StatusResponse(BaseModel):
 
 def _greeting(language: Optional[str]) -> str:
     if language == "kinyarwanda":
-        return "Murakaza neza. Ndabifurije kuvuga indwara yanyu. Twatangira?"
+        return (
+            "Murakaza neza. Ndi sisitemu ifasha muganga wawe gutegura ikiganiro cyanyu. "
+            "Nzabaza ibibazo bike kugirango amakuru yanyu ategurwe mbere yuko muganga abakira. "
+            "Muzahura na muganga wawe nyuma y'iki giganiro. Twatangira?"
+        )
     if language == "english":
-        return "Welcome. I will ask you a few questions about your symptoms. Ready to begin?"
+        return (
+            "Welcome. I am a pre-consultation assistant, not a doctor. "
+            "I will ask you a few questions so your doctor can review your case before meeting you. "
+            "Your doctor will see you shortly after. Ready to begin?"
+        )
     # No selection — offer both
     return "Welcome / Murakaza neza. Please speak to begin. / Vuga kugirango utangire."
 
@@ -128,6 +137,119 @@ def _normalize_text(value: str) -> str:
     return " ".join((value or "").split()).strip()
 
 
+# ---------------------------------------------------------------------------
+# Patient info normalization helpers
+# ---------------------------------------------------------------------------
+
+_NAME_INTRO_PHRASES = [
+    # Kinyarwanda
+    "njye nitwa ", "amazina yanjye ni ", "nitwa ", "nzwa ", "ndiho ",
+    "nze nitwa ", "twita ",
+    # English
+    "my name is ", "i'm called ", "i am called ", "they call me ",
+    "call me ", "my name's ", "i am ", "i'm ",
+    # French (occasionally mixed in)
+    "je m'appelle ", "mon nom est ",
+]
+
+_ENGLISH_ONES = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+}
+_ENGLISH_TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+_KINYARWANDA_NUMBERS = {
+    "cumi na icyenda": 19, "cumi na umunani": 18, "cumi na karindwi": 17,
+    "cumi na gatandatu": 16, "cumi na gatanu": 15, "cumi na kane": 14,
+    "cumi na gatatu": 13, "cumi na kabiri": 12, "cumi na rimwe": 11,
+    "mirongo icyenda": 90, "mirongo inani": 80, "mirongo irindwi": 70,
+    "mirongo itandatu": 60, "mirongo itanu": 50, "mirongo ine": 40,
+    "mirongo itatu": 30, "mirongo ibiri": 20, "makumyabiri": 20,
+    "icyenda": 9, "umunani": 8, "karindwi": 7, "gatandatu": 6,
+    "gatanu": 5, "kane": 4, "gatatu": 3, "kabiri": 2, "rimwe": 1,
+    "icumi": 10, "cumi": 10, "ijana": 100,
+}
+
+
+def _clean_name(raw: str) -> str:
+    """Strip Kinyarwanda/English intro phrases from name answers."""
+    lower = raw.strip().lower()
+    # Sort by length descending so longer phrases match before shorter prefixes
+    for phrase in sorted(_NAME_INTRO_PHRASES, key=len, reverse=True):
+        if lower.startswith(phrase):
+            result = raw.strip()[len(phrase):].strip().strip(".,;")
+            if result:
+                return result
+    return raw.strip()
+
+
+def _words_to_age(text: str) -> Optional[int]:
+    """Convert spoken age (words or digits) to an integer."""
+    lower = text.strip().lower()
+
+    # 1. Plain integer string
+    try:
+        val = int(lower)
+        if 0 < val < 130:
+            return val
+    except ValueError:
+        pass
+
+    # 2. Digit(s) embedded in text, e.g. "I am 25 years old"
+    digits = re.findall(r'\b(\d+)\b', lower)
+    if digits:
+        val = int(digits[0])
+        if 0 < val < 130:
+            return val
+
+    # 3. Kinyarwanda: try longest phrase match first, then check "na <ones>"
+    for phrase in sorted(_KINYARWANDA_NUMBERS, key=len, reverse=True):
+        if phrase in lower:
+            base = _KINYARWANDA_NUMBERS[phrase]
+            rest_match = re.search(re.escape(phrase) + r'\s+na\s+(\w+)', lower)
+            if rest_match:
+                addend = _KINYARWANDA_NUMBERS.get(rest_match.group(1), 0)
+                val = base + addend
+            else:
+                val = base
+            if 0 < val < 130:
+                return val
+
+    # 4. English word numbers: "twenty-five", "thirty two", etc.
+    for tens_word, tens_val in _ENGLISH_TENS.items():
+        if tens_word in lower:
+            rest = lower[lower.index(tens_word) + len(tens_word):].strip().lstrip('-').strip()
+            for ones_word, ones_val in _ENGLISH_ONES.items():
+                if rest.startswith(ones_word):
+                    return tens_val + ones_val
+            return tens_val
+    for ones_word, ones_val in _ENGLISH_ONES.items():
+        if re.search(r'\b' + ones_word + r'\b', lower):
+            return ones_val
+
+    return None
+
+
+def _normalize_extraction_patient_info(extraction: dict) -> dict:
+    """
+    Post-process model_b extraction to ensure name/age/location are consistently
+    formatted regardless of whether the LLM applied normalization or not.
+    """
+    if extraction.get("patient_name"):
+        extraction["patient_name"] = _clean_name(extraction["patient_name"])
+
+    if extraction.get("patient_age"):
+        age_int = _words_to_age(str(extraction["patient_age"]))
+        if age_int is not None:
+            extraction["patient_age"] = str(age_int)
+
+    return extraction
+
+
 def _resolve_patient_info_target(question: str) -> Optional[str]:
     normalized_question = _normalize_text(question).lower()
     for language_questions in PATIENT_INFO_QUESTIONS.values():
@@ -147,14 +269,16 @@ def _capture_patient_info_from_answer(session, question: str, answer: str) -> No
         return
 
     if target == "patient_name":
-        session.patient_name = clean_answer
-        session.extraction["patient_name"] = clean_answer
+        normalized_name = _clean_name(clean_answer)
+        session.patient_name = normalized_name
+        session.extraction["patient_name"] = normalized_name
     elif target == "patient_age":
-        session.extraction["patient_age"] = clean_answer
-        try:
-            session.patient_age = int(clean_answer)
-        except (TypeError, ValueError):
-            pass
+        age_int = _words_to_age(clean_answer)
+        if age_int is not None:
+            session.patient_age = age_int
+            session.extraction["patient_age"] = str(age_int)
+        else:
+            session.extraction["patient_age"] = clean_answer
     elif target == "patient_gender":
         session.patient_gender = clean_answer
         session.extraction["patient_gender"] = clean_answer
@@ -325,21 +449,19 @@ async def kiosk_audio(
     print("\n🔄 Running Model B (Clinical Extraction)...")
     try:
         session.extraction = await asyncio.to_thread(model_b.extract, session.transcript)
+        _normalize_extraction_patient_info(session.extraction)
         print(f"✅ Extraction successful!")
         print(f"   Extracted: {session.extraction}")
-        
-        # Extract patient info from the extraction dict and store in session attributes
+
         if session.extraction.get("patient_name"):
             session.patient_name = session.extraction["patient_name"]
             print(f"   📝 Patient name extracted: {session.patient_name}")
         if session.extraction.get("patient_age"):
-            # Try to convert to int if it's a number
-            age_val = session.extraction["patient_age"]
-            try:
-                session.patient_age = int(age_val) if isinstance(age_val, str) else age_val
-                print(f"   📝 Patient age extracted: {session.patient_age}")
-            except (ValueError, TypeError):
-                pass
+            age_int = _words_to_age(str(session.extraction["patient_age"]))
+            if age_int is not None:
+                session.patient_age = age_int
+                session.extraction["patient_age"] = str(age_int)
+            print(f"   📝 Patient age extracted: {session.patient_age}")
         if session.extraction.get("patient_gender"):
             session.patient_gender = session.extraction["patient_gender"]
             print(f"   📝 Patient gender extracted: {session.patient_gender}")
@@ -440,20 +562,18 @@ async def kiosk_answer(
             conversation_history=conversation_history,
             target_language=target_language,
         )
+        _normalize_extraction_patient_info(session.extraction)
         print(f"✅ Extraction updated: {session.extraction}")
-        
-        # Extract patient info from the extraction dict and store in session attributes
+
         if session.extraction.get("patient_name"):
             session.patient_name = session.extraction["patient_name"]
             print(f"   📝 Patient name extracted: {session.patient_name}")
         if session.extraction.get("patient_age"):
-            # Try to convert to int if it's a number
-            age_val = session.extraction["patient_age"]
-            try:
-                session.patient_age = int(age_val) if isinstance(age_val, str) else age_val
-                print(f"   📝 Patient age extracted: {session.patient_age}")
-            except (ValueError, TypeError):
-                pass
+            age_int = _words_to_age(str(session.extraction["patient_age"]))
+            if age_int is not None:
+                session.patient_age = age_int
+                session.extraction["patient_age"] = str(age_int)
+            print(f"   📝 Patient age extracted: {session.patient_age}")
         if session.extraction.get("patient_gender"):
             session.patient_gender = session.extraction["patient_gender"]
             print(f"   📝 Patient gender extracted: {session.patient_gender}")
@@ -463,7 +583,7 @@ async def kiosk_answer(
         if session.extraction.get("patient_location"):
             session.patient_location = session.extraction["patient_location"]
             print(f"   📝 Patient location extracted: {session.patient_location}")
-        
+
         # Preserve previously extracted patient info if Model B dropped it on re-extraction
         if not session.extraction.get("patient_name") and session.patient_name:
             session.extraction["patient_name"] = session.patient_name

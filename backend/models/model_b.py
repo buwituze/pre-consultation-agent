@@ -243,12 +243,26 @@ Extract comprehensive clinical information from the patient's complete conversat
 
 Rules:
 - Extract ONLY observable facts, never diagnose
-- Use patient's own words when possible
 - Leave fields empty if information is missing
 - Be specific about duration ("started yesterday" not just "recent")
 - Severity: Use exact numbers if given, or "mild"/"moderate"/"severe"
 - Associated symptoms: List separately, be specific
 - If patient phone number or home location is explicitly stated, capture them in patient_phone and patient_location
+
+CRITICAL — patient info normalization:
+- patient_name: Extract ONLY the person's actual name. Strip ALL intro phrases and do NOT include them.
+  Kinyarwanda intros to strip: "Nitwa", "Njye nitwa", "Amazina yanjye ni", "Nzwa", "Ndiho"
+  English intros to strip: "My name is", "I am", "I'm", "I'm called", "They call me", "Call me"
+  Example: "Nitwa Benitha Uwituze" → "Benitha Uwituze"
+  Example: "My name is John Doe" → "John Doe"
+- patient_age: ALWAYS output as a plain integer (number), NEVER as words.
+  Example: "ndafite imyaka makumyabiri na gatanu" → 25
+  Example: "I am twenty five years old" → 25
+  Example: "nfite imyaka mirongo itatu" → 30
+- patient_location: Normalize to "Neighborhood, City" format when recognizable.
+  Example: "ntuye kanombe muri kigali" → "Kanombe, Kigali"
+  Example: "I live in Gikondo in Kigali" → "Gikondo, Kigali"
+  Example: "Remera, Kigali" → "Remera, Kigali" (already good)
 
 Red flags (mark true if ANY present):
 - Difficulty breathing, chest pain, pressure
