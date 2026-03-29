@@ -242,7 +242,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   onPressed:
                       saving
@@ -603,7 +603,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   onPressed:
                       saving
@@ -970,7 +970,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
             onPressed: () => _fetch(showLoader: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: _primaryGreen,
-              foregroundColor: Colors.white,
+              foregroundColor: Colors.black,
             ),
             child: const Text('Retry'),
           ),

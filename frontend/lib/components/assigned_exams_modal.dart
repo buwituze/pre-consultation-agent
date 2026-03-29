@@ -142,7 +142,7 @@ class _AssignedExamsModalState extends State<AssignedExamsModal> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8B9E3A),
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,

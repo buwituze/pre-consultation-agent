@@ -241,7 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _isLoading ? null : _login,
             style: ElevatedButton.styleFrom(
               backgroundColor: _green,
-              foregroundColor: Colors.white,
+              foregroundColor: Colors.black,
               elevation: 0,
               shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(

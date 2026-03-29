@@ -315,7 +315,7 @@ Widget _errorBox(String message, VoidCallback onRetry) => Container(
         onPressed: onRetry,
         style: ElevatedButton.styleFrom(
           backgroundColor: _primaryGreen,
-          foregroundColor: Colors.white,
+          foregroundColor: Colors.black,
         ),
         child: const Text('Retry'),
       ),
@@ -558,7 +558,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryGreen,
-                foregroundColor: Colors.white,
+                foregroundColor: Colors.black,
               ),
               child: submitting ? _submitLoader() : const Text('Add Doctor'),
             ),
@@ -655,7 +655,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryGreen,
-                foregroundColor: Colors.white,
+                foregroundColor: Colors.black,
               ),
               child: submitting ? _submitLoader() : const Text('Save'),
             ),
@@ -746,7 +746,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                 label: const Text('Add Doctor'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryGreen,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
@@ -1530,7 +1530,7 @@ class _RoomsSectionState extends State<_RoomsSection>
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryGreen,
-                foregroundColor: Colors.white,
+                foregroundColor: Colors.black,
               ),
               child: submitting ? _submitLoader() : const Text('Submit'),
             ),
@@ -1650,7 +1650,7 @@ class _RoomsSectionState extends State<_RoomsSection>
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryGreen,
-                foregroundColor: Colors.white,
+                foregroundColor: Colors.black,
               ),
               child: submitting ? _submitLoader() : const Text('Save'),
             ),
@@ -1740,7 +1740,7 @@ class _RoomsSectionState extends State<_RoomsSection>
                 label: const Text('Add Room'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryGreen,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,

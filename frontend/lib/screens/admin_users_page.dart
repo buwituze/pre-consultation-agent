@@ -377,7 +377,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   child:
                       submitting
@@ -532,7 +532,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   child:
                       submitting
@@ -667,7 +667,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                       label: const Text('Register Doctor'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: _primaryGreen,
-                                        foregroundColor: Colors.white,
+                                        foregroundColor: Colors.black,
                                       ),
                                     ),
                                     ElevatedButton.icon(
@@ -679,7 +679,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                       label: const Text('Add Hospital Admin'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: _primaryGreen,
-                                        foregroundColor: Colors.white,
+                                        foregroundColor: Colors.black,
                                       ),
                                     ),
                                   ],

@@ -237,7 +237,7 @@ class _FacilityDetailPageState extends State<FacilityDetailPage> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   child:
                       submitting
@@ -364,7 +364,7 @@ class _FacilityDetailPageState extends State<FacilityDetailPage> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   child:
                       submitting
@@ -414,7 +414,7 @@ class _FacilityDetailPageState extends State<FacilityDetailPage> {
                 onPressed: () => Navigator.of(ctx).pop(true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryGreen,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Colors.black,
                 ),
                 child: const Text('Confirm'),
               ),
@@ -679,7 +679,7 @@ class _FacilityDetailPageState extends State<FacilityDetailPage> {
           child: OutlinedButton(
             onPressed: () => _onTabSelected(index),
             style: OutlinedButton.styleFrom(
-              foregroundColor: isActive ? Colors.white : _primaryGreen,
+              foregroundColor: isActive ? Colors.black : _primaryGreen,
               backgroundColor: isActive ? _primaryGreen : Colors.white,
               side: BorderSide(color: _primaryGreen),
               shape: RoundedRectangleBorder(
@@ -722,7 +722,7 @@ class _FacilityDetailPageState extends State<FacilityDetailPage> {
           label: const Text('Add Doctor'),
           style: ElevatedButton.styleFrom(
             backgroundColor: _primaryGreen,
-            foregroundColor: Colors.white,
+            foregroundColor: Colors.black,
           ),
         ),
         const SizedBox(height: 12),

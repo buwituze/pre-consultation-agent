@@ -382,7 +382,7 @@ class _AllDoctorsPageState extends State<AllDoctorsPage> {
             onPressed: () => _fetch(showLoader: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: _primaryGreen,
-              foregroundColor: Colors.white,
+              foregroundColor: Colors.black,
             ),
             child: const Text('Retry'),
           ),

@@ -444,7 +444,7 @@ class _RoomsPageState extends State<RoomsPage> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   child:
                       submitting
@@ -591,7 +591,7 @@ class _RoomsPageState extends State<RoomsPage> {
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                   child:
                       submitting
@@ -636,7 +636,7 @@ class _RoomsPageState extends State<RoomsPage> {
                 onPressed: () => Navigator.of(ctx).pop(true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryGreen,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Colors.black,
                 ),
                 child: const Text('Confirm'),
               ),
@@ -791,7 +791,7 @@ class _RoomsPageState extends State<RoomsPage> {
                         label: const Text('Add Room'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryGreen,
-                          foregroundColor: Colors.white,
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,
@@ -947,7 +947,7 @@ class _RoomsPageState extends State<RoomsPage> {
             onPressed: () => _fetch(showLoader: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: _primaryGreen,
-              foregroundColor: Colors.white,
+              foregroundColor: Colors.black,
             ),
             child: const Text('Retry'),
           ),
