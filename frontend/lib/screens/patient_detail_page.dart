@@ -740,7 +740,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
 
     final redFlagNote = (_patientBrief?.redFlagNote ?? '').trim();
     final redFlagsDetected =
-        _selectedSessionDetail?.extractionData?['red_flags_detected'] == true;
+        _selectedSessionDetail?.extractionData?['red_flags_present'] == true;
     final redFlagLines = <String>[];
     if (redFlagNote.isNotEmpty) redFlagLines.add(redFlagNote);
     if (redFlagsDetected && redFlagLines.isEmpty) {

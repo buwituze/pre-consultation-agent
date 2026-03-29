@@ -625,6 +625,7 @@ async def kiosk_finish(
             location=location_value,
         )
         print(f"✅ Updated patient info")
+
         # 1. Save audio file references
         if hasattr(session, 'audio_files'):
             for seq, speaker, path, size in session.audio_files:
@@ -636,10 +637,9 @@ async def kiosk_finish(
                     file_size_bytes=size
                 )
             print(f"✅ Saved {len(session.audio_files)} audio references")
-        
+
         # 2. Save conversation messages
         seq_num = 1
-        # Initial patient complaint
         ConversationDB.add_message(
             session_id=session.db_session_id,
             sender_type='patient',
@@ -647,8 +647,6 @@ async def kiosk_finish(
             sequence_number=seq_num
         )
         seq_num += 1
-        
-        # Q&A turns
         for turn in session.turns:
             ConversationDB.add_message(
                 session_id=session.db_session_id,
@@ -665,26 +663,30 @@ async def kiosk_finish(
             )
             seq_num += 1
         print(f"✅ Saved {seq_num - 1} conversation messages")
-        
-        # 3. Save symptoms
-        if session.extraction.get('symptoms'):
-            for symptom in session.extraction['symptoms']:
+
+        # 3. Save symptoms (each symptom in its own try so one bad entry can't abort the rest)
+        symptoms_list = session.extraction.get('associated_symptoms') or []
+        saved_symptoms = 0
+        for symptom in symptoms_list:
+            try:
                 if isinstance(symptom, dict):
                     SymptomDB.add_symptom(
                         session_id=session.db_session_id,
                         symptom_name=symptom.get('name', 'unknown'),
-                        severity=symptom.get('severity'),
                         duration=symptom.get('duration'),
                         additional_info=symptom.get('description')
                     )
                 else:
-                    # Simple string symptom
                     SymptomDB.add_symptom(
                         session_id=session.db_session_id,
                         symptom_name=str(symptom)
                     )
-            print(f"✅ Saved {len(session.extraction['symptoms'])} symptoms")
-        
+                saved_symptoms += 1
+            except Exception as sym_err:
+                print(f"⚠️ Could not save symptom '{symptom}': {sym_err}")
+        if saved_symptoms:
+            print(f"✅ Saved {saved_symptoms} symptoms")
+
         # 4. Save prediction/risk score
         db_risk_level = str(session.score.get('priority', 'medium')).strip().lower()
         if db_risk_level not in {'low', 'medium', 'high'}:
@@ -693,11 +695,11 @@ async def kiosk_finish(
             session_id=session.db_session_id,
             predicted_condition=session.score.get('suspected_issue', 'Unknown'),
             risk_level=db_risk_level,
-            confidence_score=session.score.get('confidence', 0.5),
+            confidence_score=min(float(session.score.get('confidence', 0.5)), 1.0),
             model_version='1.0'
         )
         print(f"✅ Saved prediction")
-        
+
         # 5. Create queue entry in the routed destination queue.
         queue_entry = QueueDB.create_queue_entry(
             session_id=session.db_session_id,
@@ -718,7 +720,22 @@ async def kiosk_finish(
             "urgency_label": routing.urgency_label,
         }
 
-        # 7. Save complete session data.
+    except Exception as e:
+        print(f"❌ Database persistence error (steps 0-6): {e}")
+        import traceback
+        traceback.print_exc()
+
+    # 7. Always save complete session data — kept in its own block so a failure
+    #    in steps 0-6 never prevents extraction_data / doctor_brief from being stored.
+    try:
+        _red_flags = session.extraction.get('red_flags_present')
+        if _red_flags is None:
+            _red_flags = session.score.get('red_flags_detected')
+        _severity = session.extraction.get('severity_estimate') or session.score.get('severity_estimate')
+        try:
+            _severity = int(_severity) if _severity is not None else None
+        except (TypeError, ValueError):
+            _severity = None
         ExtendedSessionDB.save_complete_session(
             session_id=session.db_session_id,
             extraction_data=session.extraction,
@@ -727,18 +744,19 @@ async def kiosk_finish(
             doctor_brief=session.doctor_brief,
             full_transcript=full_transcript,
             transcript_confidence=session.transcript_conf,
-            detected_language=session.language
+            detected_language=session.language,
+            patient_age=session.patient_age,
+            patient_gender=session.patient_gender or None,
+            red_flags_detected=bool(_red_flags) if _red_flags is not None else False,
+            chief_complaint=session.extraction.get('chief_complaint') or None,
+            severity_estimate=_severity,
         )
         print(f"✅ Saved complete session data")
-        
         print("💾 DATABASE PERSISTENCE COMPLETE")
-        
     except Exception as e:
-        print(f"❌ Database persistence error: {e}")
+        print(f"❌ Failed to save complete session data: {e}")
         import traceback
         traceback.print_exc()
-        # Don't fail the request - data is in memory, can be retried
-        # In production, you'd want better error handling here
     
     print("="*80 + "\n")
 

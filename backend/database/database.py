@@ -700,9 +700,14 @@ class ExtendedSessionDB:
     @staticmethod
     def save_complete_session(session_id: int, extraction_data: Dict, score_data: Dict,
                              patient_message: str, doctor_brief: Dict, full_transcript: str,
-                             transcript_confidence: float, detected_language: str) -> int:
+                             transcript_confidence: float, detected_language: str,
+                             patient_age: Optional[int] = None,
+                             patient_gender: Optional[str] = None,
+                             red_flags_detected: Optional[bool] = None,
+                             chief_complaint: Optional[str] = None,
+                             severity_estimate: Optional[int] = None) -> int:
         query = """
-            UPDATE session SET 
+            UPDATE session SET
                 extraction_data = %s,
                 score_data = %s,
                 patient_message = %s,
@@ -710,6 +715,11 @@ class ExtendedSessionDB:
                 full_transcript = %s,
                 transcript_confidence = %s,
                 detected_language = %s,
+                patient_age = %s,
+                patient_gender = %s,
+                red_flags_detected = %s,
+                chief_complaint = %s,
+                severity_estimate = %s,
                 status = 'completed',
                 end_time = CURRENT_TIMESTAMP
             WHERE session_id = %s
@@ -722,6 +732,11 @@ class ExtendedSessionDB:
             full_transcript,
             transcript_confidence,
             detected_language,
+            patient_age,
+            patient_gender,
+            red_flags_detected,
+            chief_complaint,
+            severity_estimate,
             session_id
         ))
     

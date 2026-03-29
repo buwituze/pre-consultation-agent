@@ -445,22 +445,46 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                       ),
                       const SizedBox(height: 8),
 
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 200),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Opacity(
-                              opacity: 0,
-                              child: IgnorePointer(
-                                child: LanguageDropdown(
-                                  currentLanguage: context.locale.languageCode,
-                                  onLanguageChange: (_) {},
+                      if (constraints.maxWidth > 700)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 200),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Opacity(
+                                opacity: 0,
+                                child: IgnorePointer(
+                                  child: LanguageDropdown(
+                                    currentLanguage: context.locale.languageCode,
+                                    onLanguageChange: (_) {},
+                                  ),
                                 ),
                               ),
-                            ),
-                            Expanded(
-                              child: Text(
+                              Expanded(
+                                child: Text(
+                                  'instruction'.tr(),
+                                  style: const TextStyle(
+                                    fontSize: 19,
+                                    color: Color.fromARGB(255, 0, 0, 0),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              LanguageDropdown(
+                                currentLanguage: context.locale.languageCode,
+                                onLanguageChange: (String languageCode) {
+                                  context.setLocale(Locale(languageCode));
+                                },
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            children: [
+                              Text(
                                 'instruction'.tr(),
                                 style: const TextStyle(
                                   fontSize: 19,
@@ -468,16 +492,16 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                                 ),
                                 textAlign: TextAlign.center,
                               ),
-                            ),
-                            LanguageDropdown(
-                              currentLanguage: context.locale.languageCode,
-                              onLanguageChange: (String languageCode) {
-                                context.setLocale(Locale(languageCode));
-                              },
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              LanguageDropdown(
+                                currentLanguage: context.locale.languageCode,
+                                onLanguageChange: (String languageCode) {
+                                  context.setLocale(Locale(languageCode));
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
                       if (_isSessionActive &&
                           (_patientName.isNotEmpty || _patientPhone.isNotEmpty))
@@ -626,8 +650,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                         const SizedBox(height: 12),
                         Center(
                           child: SizedBox(
-                            width: 260,
-                            height: 150,
+                            width: constraints.maxWidth > 700 ? 260 : 300,
+                            height: constraints.maxWidth > 700 ? 150 : 185,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.asset(
