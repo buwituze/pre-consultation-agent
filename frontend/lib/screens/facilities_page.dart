@@ -728,15 +728,17 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
                   navItems: const [],
                   activeItem: 'Facilities',
                   onSettingsTap: () {},
-                  onPatientTap: (id) => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PatientDetailPage(
-                        userRole: widget.userRole,
-                        userName: widget.userName,
-                        initialPatientId: id,
+                  onPatientTap:
+                      (id) => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (_) => PatientDetailPage(
+                                userRole: widget.userRole,
+                                userName: widget.userName,
+                                initialPatientId: id,
+                              ),
+                        ),
                       ),
-                    ),
-                  ),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
@@ -977,9 +979,28 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
     );
   }
 
+  String _fmtDate(DateTime? dt) {
+    if (dt == null) return '—';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
   Widget _table(List<FacilityItem> items) {
     return AdminTableShell(
-      minWidth: 1280,
+      minWidth: 1420,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(2.3),
@@ -989,8 +1010,9 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
           4: FlexColumnWidth(1.9),
           5: FlexColumnWidth(1.1),
           6: FlexColumnWidth(1.2),
-          7: FlexColumnWidth(1.2),
-          8: FlexColumnWidth(1.1),
+          7: FlexColumnWidth(1.5),
+          8: FlexColumnWidth(1.2),
+          9: FlexColumnWidth(1.1),
         },
         border: TableBorder(
           horizontalInside: BorderSide(
@@ -1013,6 +1035,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
               _headerCell('Admin'),
               _headerCell('Doctors'),
               _headerCell('Rooms'),
+              _headerCell('Created At'),
               _headerCell('Status'),
               _headerCell('Action'),
             ],
@@ -1027,6 +1050,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
                 _dataCell(f.adminName ?? '—'),
                 _dataCell(f.totalDoctors.toString()),
                 _dataCell('${f.activeRooms}/${f.totalRooms}'),
+                _dataCell(_fmtDate(f.createdAt)),
                 _statusBadge(f.isActive),
                 _actionCell(f),
               ],
@@ -1035,7 +1059,7 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
           if (items.isEmpty)
             TableRow(
               children: List.generate(
-                9,
+                10,
                 (i) =>
                     i == 4
                         ? _dataCell(

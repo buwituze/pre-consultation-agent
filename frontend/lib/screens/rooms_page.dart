@@ -956,11 +956,20 @@ class _RoomsPageState extends State<RoomsPage> {
     );
   }
 
+  String _fmtDate(DateTime? dt) {
+    if (dt == null) return '—';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
   Widget _table(List<_RoomRow> rows) {
     final actionLabel = _isDoctorView ? 'Access' : 'Action';
 
     return AdminTableShell(
-      minWidth: 1240,
+      minWidth: 1360,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(2.2),
@@ -968,8 +977,9 @@ class _RoomsPageState extends State<RoomsPage> {
           2: FlexColumnWidth(2.4),
           3: FlexColumnWidth(1.1),
           4: FlexColumnWidth(1.1),
-          5: FlexColumnWidth(1.3),
-          6: FlexColumnWidth(2.0),
+          5: FlexColumnWidth(1.5),
+          6: FlexColumnWidth(1.3),
+          7: FlexColumnWidth(2.0),
         },
         border: TableBorder(
           horizontalInside: BorderSide(
@@ -990,6 +1000,7 @@ class _RoomsPageState extends State<RoomsPage> {
               const _HeaderCell('Hospital'),
               const _HeaderCell('Floor'),
               const _HeaderCell('Capacity'),
+              const _HeaderCell('Added On'),
               const _HeaderCell('Status'),
               _HeaderCell(actionLabel),
             ],
@@ -1002,6 +1013,7 @@ class _RoomsPageState extends State<RoomsPage> {
                 _dataCell(row.facilityName),
                 _dataCell(row.room.floorNumber?.toString() ?? '—'),
                 _dataCell(row.room.capacity.toString()),
+                _dataCell(_fmtDate(row.room.createdAt)),
                 _statusBadge(row.room.status),
                 _actionCell(row),
               ],
@@ -1010,7 +1022,7 @@ class _RoomsPageState extends State<RoomsPage> {
           if (rows.isEmpty)
             TableRow(
               children: List.generate(
-                7,
+                8,
                 (index) =>
                     index == 2
                         ? _dataCell(

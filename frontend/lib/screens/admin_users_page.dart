@@ -786,9 +786,18 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
   }
 
+  String _fmtDate(DateTime? dt) {
+    if (dt == null) return '—';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
   Widget _buildTable(List<SystemUserItem> users) {
     return AdminTableShell(
-      minWidth: 1180,
+      minWidth: 1320,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(2.1),
@@ -796,8 +805,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           2: FlexColumnWidth(1.5),
           3: FlexColumnWidth(2.0),
           4: FlexColumnWidth(1.5),
-          5: FlexColumnWidth(1.1),
-          6: FlexColumnWidth(1.6),
+          5: FlexColumnWidth(1.5),
+          6: FlexColumnWidth(1.1),
+          7: FlexColumnWidth(1.6),
         },
         border: TableBorder(
           horizontalInside: BorderSide(
@@ -818,6 +828,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               _HeaderCell('Role'),
               _HeaderCell('Facility'),
               _HeaderCell('Specialty'),
+              _HeaderCell('Created At'),
               _HeaderCell('Status'),
               _HeaderCell('Action'),
             ],
@@ -834,6 +845,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       ? user.specialty!
                       : '-',
                 ),
+                _dataCell(_fmtDate(user.createdAt)),
                 _statusBadge(_effectiveIsActive(user)),
                 _userActionCell(user),
               ],
@@ -842,7 +854,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           if (users.isEmpty)
             TableRow(
               children: List.generate(
-                7,
+                8,
                 (index) =>
                     index == 3
                         ? _dataCell(

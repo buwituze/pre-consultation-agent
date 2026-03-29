@@ -391,16 +391,26 @@ class _AllDoctorsPageState extends State<AllDoctorsPage> {
     );
   }
 
+  String _fmtDate(DateTime? dt) {
+    if (dt == null) return '—';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
   Widget _table(List<DoctorItem> doctors) {
     return AdminTableShell(
-      minWidth: 1160,
+      minWidth: 1260,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(2.2),
           1: FlexColumnWidth(2.4),
           2: FlexColumnWidth(1.8),
           3: FlexColumnWidth(2.4),
-          4: FlexColumnWidth(1.2),
+          4: FlexColumnWidth(1.5),
+          5: FlexColumnWidth(1.2),
         },
         border: TableBorder(
           horizontalInside: BorderSide(
@@ -420,6 +430,7 @@ class _AllDoctorsPageState extends State<AllDoctorsPage> {
               _HeaderCell('Email'),
               _HeaderCell('Specialty'),
               _HeaderCell('Hospital'),
+              _HeaderCell('Added On'),
               _HeaderCell('Status'),
             ],
           ),
@@ -434,6 +445,7 @@ class _AllDoctorsPageState extends State<AllDoctorsPage> {
                       : doctor.specialty!.trim(),
                 ),
                 _dataCell(_facilityNameById(doctor.facilityId)),
+                _dataCell(_fmtDate(doctor.createdAt)),
                 _statusBadge(doctor.isActive),
               ],
             ),
@@ -441,7 +453,7 @@ class _AllDoctorsPageState extends State<AllDoctorsPage> {
           if (doctors.isEmpty)
             TableRow(
               children: List.generate(
-                5,
+                6,
                 (index) =>
                     index == 2
                         ? _dataCell(
