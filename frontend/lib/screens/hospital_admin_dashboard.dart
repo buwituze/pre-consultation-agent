@@ -71,40 +71,39 @@ class _HospitalAdminDashboardState extends State<HospitalAdminDashboard> {
                   navItems: const [],
                   activeItem: _activeSection,
                   onSettingsTap: () {},
-                  onPatientTap: (id) => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PatientDetailPage(
-                        userRole: widget.userRole,
-                        userName: _displayName,
-                        initialPatientId: id,
+                  onPatientTap:
+                      (id) => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (_) => PatientDetailPage(
+                                userRole: widget.userRole,
+                                userName: _displayName,
+                                initialPatientId: id,
+                              ),
+                        ),
                       ),
-                    ),
-                  ),
                 ),
                 Expanded(
-                  child: !_profileLoaded
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              _primaryGreen,
+                  child:
+                      !_profileLoaded
+                          ? const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                _primaryGreen,
+                              ),
                             ),
+                          )
+                          : IndexedStack(
+                            index: _sections.indexOf(_activeSection),
+                            children: [
+                              _DoctorsSection(facilityId: _facilityId),
+                              _PatientsSection(
+                                userRole: widget.userRole,
+                                userName: _displayName,
+                              ),
+                              _RoomsSection(facilityId: _facilityId),
+                            ],
                           ),
-                        )
-                      : IndexedStack(
-                          index: _sections.indexOf(_activeSection),
-                          children: [
-                            _DoctorsSection(
-                              facilityId: _facilityId,
-                            ),
-                            _PatientsSection(
-                              userRole: widget.userRole,
-                              userName: _displayName,
-                            ),
-                            _RoomsSection(
-                              facilityId: _facilityId,
-                            ),
-                          ],
-                        ),
                 ),
               ],
             ),
@@ -134,14 +133,22 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 250,
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          right: BorderSide(
+            color: const Color.fromARGB(255, 129, 129, 129),
+            width: 0.8,
+          ),
+        ),
+      ),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 36, 16, 16),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: Colors.grey.shade100, width: 1),
@@ -159,7 +166,7 @@ class _Sidebar extends StatelessWidget {
             const SizedBox(height: 12),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -183,7 +190,10 @@ class _Sidebar extends StatelessWidget {
                                   Icon(
                                     item.icon,
                                     size: 20,
-                                    color: isActive ? Colors.black : Colors.black54,
+                                    color:
+                                        isActive
+                                            ? Colors.black
+                                            : Colors.black54,
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
@@ -194,7 +204,10 @@ class _Sidebar extends StatelessWidget {
                                           isActive
                                               ? FontWeight.w700
                                               : FontWeight.w500,
-                                      color: isActive ? Colors.black : Colors.black87,
+                                      color:
+                                          isActive
+                                              ? Colors.black
+                                              : Colors.black87,
                                     ),
                                   ),
                                 ],
@@ -272,8 +285,18 @@ bool _inDateRange(DateTime? date, DateTime? from, DateTime? to) {
 String _fmtDate(DateTime? dt) {
   if (dt == null) return '—';
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
 }
@@ -419,7 +442,8 @@ class _DoctorsSectionState extends State<_DoctorsSection>
       if (!mounted) return;
       setState(() => _doctors = doctors);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Failed to load doctors. Check connectivity.');
+      if (mounted)
+        setState(() => _error = 'Failed to load doctors. Check connectivity.');
     } finally {
       if (mounted) {
         setState(() {
@@ -430,20 +454,21 @@ class _DoctorsSectionState extends State<_DoctorsSection>
     }
   }
 
-  List<DoctorItem> get _filtered => _doctors.where((d) {
-    if (_statusFilter == 'Active' && !d.isActive) return false;
-    if (_statusFilter == 'Inactive' && d.isActive) return false;
-    if (!_inDateRange(d.createdAt, _dateFrom, _dateTo)) return false;
-    if (_search.trim().isNotEmpty) {
-      final q = _search.trim().toLowerCase();
-      if (!d.fullName.toLowerCase().contains(q) &&
-          !d.email.toLowerCase().contains(q) &&
-          !(d.specialty ?? '').toLowerCase().contains(q)) {
-        return false;
-      }
-    }
-    return true;
-  }).toList();
+  List<DoctorItem> get _filtered =>
+      _doctors.where((d) {
+        if (_statusFilter == 'Active' && !d.isActive) return false;
+        if (_statusFilter == 'Inactive' && d.isActive) return false;
+        if (!_inDateRange(d.createdAt, _dateFrom, _dateTo)) return false;
+        if (_search.trim().isNotEmpty) {
+          final q = _search.trim().toLowerCase();
+          if (!d.fullName.toLowerCase().contains(q) &&
+              !d.email.toLowerCase().contains(q) &&
+              !(d.specialty ?? '').toLowerCase().contains(q)) {
+            return false;
+          }
+        }
+        return true;
+      }).toList();
 
   Future<void> _showAddDialog() async {
     final formKey = GlobalKey<FormState>();
@@ -457,211 +482,242 @@ class _DoctorsSectionState extends State<_DoctorsSection>
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: const Text(
-            'Add Doctor',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: SizedBox(
-            width: 520,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (modalError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        modalError!,
-                        style: const TextStyle(color: _accentGold),
-                      ),
-                    ),
-                  _formField(nameCtrl, 'Full Name', validator: _required),
-                  const SizedBox(height: 10),
-                  _formField(
-                    emailCtrl,
-                    'Email',
-                    keyboardType: TextInputType.emailAddress,
-                    validator: _required,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setModal) => AlertDialog(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 10),
-                  _formField(
-                    passCtrl,
-                    'Password',
-                    obscureText: obscure,
-                    validator: _required,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscure
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 20,
-                      ),
-                      onPressed: () => setModal(() => obscure = !obscure),
-                    ),
+                  title: const Text(
+                    'Add Doctor',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 10),
-                  _formField(specialtyCtrl, 'Specialty (optional)'),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
-              style: TextButton.styleFrom(foregroundColor: _primaryGreen),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: submitting
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      setModal(() {
-                        submitting = true;
-                        modalError = null;
-                      });
-                      try {
-                        await ApiService.registerDoctor(
-                          email: emailCtrl.text.trim(),
-                          password: passCtrl.text,
-                          fullName: nameCtrl.text.trim(),
-                          specialty: specialtyCtrl.text.trim().isEmpty
-                              ? null
-                              : specialtyCtrl.text.trim(),
-                          facilityId: widget.facilityId,
-                        );
-                        if (!mounted) return;
-                        Navigator.of(ctx).pop();
-                        _fetch(showLoader: false);
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Doctor added successfully.'),
-                            backgroundColor: _primaryGreen,
+                  content: SizedBox(
+                    width: 520,
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (modalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                modalError!,
+                                style: const TextStyle(color: _accentGold),
+                              ),
+                            ),
+                          _formField(
+                            nameCtrl,
+                            'Full Name',
+                            validator: _required,
                           ),
-                        );
-                      } catch (e) {
-                        setModal(() {
-                          submitting = false;
-                          modalError = e
-                              .toString()
-                              .replaceFirst('Exception: ', '');
-                        });
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryGreen,
-                foregroundColor: Colors.black,
-              ),
-              child: submitting ? _submitLoader() : const Text('Add Doctor'),
-            ),
-          ],
-        ),
-      ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            emailCtrl,
+                            'Email',
+                            keyboardType: TextInputType.emailAddress,
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            passCtrl,
+                            'Password',
+                            obscureText: obscure,
+                            validator: _required,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscure
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                size: 20,
+                              ),
+                              onPressed:
+                                  () => setModal(() => obscure = !obscure),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(specialtyCtrl, 'Specialty (optional)'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          submitting ? null : () => Navigator.of(ctx).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _primaryGreen,
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          submitting
+                              ? null
+                              : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                setModal(() {
+                                  submitting = true;
+                                  modalError = null;
+                                });
+                                try {
+                                  await ApiService.registerDoctor(
+                                    email: emailCtrl.text.trim(),
+                                    password: passCtrl.text,
+                                    fullName: nameCtrl.text.trim(),
+                                    specialty:
+                                        specialtyCtrl.text.trim().isEmpty
+                                            ? null
+                                            : specialtyCtrl.text.trim(),
+                                    facilityId: widget.facilityId,
+                                  );
+                                  if (!mounted) return;
+                                  Navigator.of(ctx).pop();
+                                  _fetch(showLoader: false);
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Doctor added successfully.',
+                                      ),
+                                      backgroundColor: _primaryGreen,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  setModal(() {
+                                    submitting = false;
+                                    modalError = e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
+                                  });
+                                }
+                              },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryGreen,
+                        foregroundColor: Colors.black,
+                      ),
+                      child:
+                          submitting
+                              ? _submitLoader()
+                              : const Text('Add Doctor'),
+                    ),
+                  ],
+                ),
+          ),
     );
   }
 
   Future<void> _showEditDialog(DoctorItem doctor) async {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController(text: doctor.fullName);
-    final specialtyCtrl = TextEditingController(
-      text: doctor.specialty ?? '',
-    );
+    final specialtyCtrl = TextEditingController(text: doctor.specialty ?? '');
     bool submitting = false;
     String? modalError;
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: const Text(
-            'Edit Doctor',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: SizedBox(
-            width: 520,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (modalError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        modalError!,
-                        style: const TextStyle(color: _accentGold),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setModal) => AlertDialog(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  title: const Text(
+                    'Edit Doctor',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  content: SizedBox(
+                    width: 520,
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (modalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                modalError!,
+                                style: const TextStyle(color: _accentGold),
+                              ),
+                            ),
+                          _formField(
+                            nameCtrl,
+                            'Full Name',
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(specialtyCtrl, 'Specialty (optional)'),
+                        ],
                       ),
                     ),
-                  _formField(nameCtrl, 'Full Name', validator: _required),
-                  const SizedBox(height: 10),
-                  _formField(specialtyCtrl, 'Specialty (optional)'),
-                ],
-              ),
-            ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          submitting ? null : () => Navigator.of(ctx).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _primaryGreen,
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          submitting
+                              ? null
+                              : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                setModal(() {
+                                  submitting = true;
+                                  modalError = null;
+                                });
+                                try {
+                                  final updates = <String, dynamic>{
+                                    'full_name': nameCtrl.text.trim(),
+                                  };
+                                  if (specialtyCtrl.text.trim().isNotEmpty) {
+                                    updates['specialty'] =
+                                        specialtyCtrl.text.trim();
+                                  }
+                                  await ApiService.updateDoctor(
+                                    doctor.userId,
+                                    updates,
+                                  );
+                                  if (!mounted) return;
+                                  Navigator.of(ctx).pop();
+                                  _fetch(showLoader: false);
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Doctor updated.'),
+                                      backgroundColor: _primaryGreen,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  setModal(() {
+                                    submitting = false;
+                                    modalError = e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
+                                  });
+                                }
+                              },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryGreen,
+                        foregroundColor: Colors.black,
+                      ),
+                      child: submitting ? _submitLoader() : const Text('Save'),
+                    ),
+                  ],
+                ),
           ),
-          actions: [
-            TextButton(
-              onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
-              style: TextButton.styleFrom(foregroundColor: _primaryGreen),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: submitting
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      setModal(() {
-                        submitting = true;
-                        modalError = null;
-                      });
-                      try {
-                        final updates = <String, dynamic>{
-                          'full_name': nameCtrl.text.trim(),
-                        };
-                        if (specialtyCtrl.text.trim().isNotEmpty) {
-                          updates['specialty'] = specialtyCtrl.text.trim();
-                        }
-                        await ApiService.updateDoctor(doctor.userId, updates);
-                        if (!mounted) return;
-                        Navigator.of(ctx).pop();
-                        _fetch(showLoader: false);
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Doctor updated.'),
-                            backgroundColor: _primaryGreen,
-                          ),
-                        );
-                      } catch (e) {
-                        setModal(() {
-                          submitting = false;
-                          modalError = e
-                              .toString()
-                              .replaceFirst('Exception: ', '');
-                        });
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryGreen,
-                foregroundColor: Colors.black,
-              ),
-              child: submitting ? _submitLoader() : const Text('Save'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -726,8 +782,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                 ),
               ),
               OutlinedButton.icon(
-                onPressed:
-                    _isLoading ? null : () => _fetch(showLoader: false),
+                onPressed: _isLoading ? null : () => _fetch(showLoader: false),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Refresh'),
                 style: OutlinedButton.styleFrom(
@@ -773,8 +828,8 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                   value: _statusFilter,
                   items: _statusOptions,
                   icon: Icons.filter_alt_outlined,
-                  selectedLabelBuilder: (v) =>
-                      v == 'All' ? 'Filter' : 'Filter $v',
+                  selectedLabelBuilder:
+                      (v) => v == 'All' ? 'Filter' : 'Filter $v',
                   onChanged: (v) {
                     if (v != null) setState(() => _statusFilter = v);
                   },
@@ -868,12 +923,13 @@ class _DoctorsSectionState extends State<_DoctorsSection>
             TableRow(
               children: List.generate(
                 6,
-                (i) => i == 2
-                    ? _dataCell(
-                        'No doctors found for the current filters.',
-                        align: TextAlign.center,
-                      )
-                    : _dataCell(''),
+                (i) =>
+                    i == 2
+                        ? _dataCell(
+                          'No doctors found for the current filters.',
+                          align: TextAlign.center,
+                        )
+                        : _dataCell(''),
               ),
             ),
         ],
@@ -905,8 +961,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
   }
 
   Widget _actions(DoctorItem doctor) {
-    final toggleColor =
-        doctor.isActive ? AdminUi.deleteAction : _primaryGreen;
+    final toggleColor = doctor.isActive ? AdminUi.deleteAction : _primaryGreen;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Wrap(
@@ -928,10 +983,7 @@ class _DoctorsSectionState extends State<_DoctorsSection>
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
                 side: BorderSide(color: toggleColor.withAlpha(120)),
@@ -950,10 +1002,7 @@ class _PatientsSection extends StatefulWidget {
   final String userRole;
   final String userName;
 
-  const _PatientsSection({
-    required this.userRole,
-    required this.userName,
-  });
+  const _PatientsSection({required this.userRole, required this.userName});
 
   @override
   State<_PatientsSection> createState() => _PatientsSectionState();
@@ -972,12 +1021,7 @@ class _PatientsSectionState extends State<_PatientsSection>
   DateTime? _dateFrom;
   DateTime? _dateTo;
 
-  static const List<String> _priorityOptions = [
-    'All',
-    'high',
-    'medium',
-    'low',
-  ];
+  static const List<String> _priorityOptions = ['All', 'high', 'medium', 'low'];
 
   bool get _hasDateData => _patients.any((p) => p.startTime != null);
 
@@ -1010,7 +1054,8 @@ class _PatientsSectionState extends State<_PatientsSection>
       if (!mounted) return;
       setState(() => _patients = patients);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Failed to load patients. Check connectivity.');
+      if (mounted)
+        setState(() => _error = 'Failed to load patients. Check connectivity.');
     } finally {
       if (mounted) {
         setState(() {
@@ -1021,27 +1066,28 @@ class _PatientsSectionState extends State<_PatientsSection>
     }
   }
 
-  List<PatientListItem> get _filtered => _patients.where((p) {
-    if (_priorityFilter != 'All' &&
-        (p.priority ?? '').toLowerCase() != _priorityFilter) {
-      return false;
-    }
-    if (!_inDateRange(
-      DateTime.tryParse(p.startTime ?? ''),
-      _dateFrom,
-      _dateTo,
-    )) {
-      return false;
-    }
-    if (_search.trim().isNotEmpty) {
-      final q = _search.trim().toLowerCase();
-      if (!p.fullName.toLowerCase().contains(q) &&
-          !(p.phoneNumber ?? '').toLowerCase().contains(q)) {
-        return false;
-      }
-    }
-    return true;
-  }).toList();
+  List<PatientListItem> get _filtered =>
+      _patients.where((p) {
+        if (_priorityFilter != 'All' &&
+            (p.priority ?? '').toLowerCase() != _priorityFilter) {
+          return false;
+        }
+        if (!_inDateRange(
+          DateTime.tryParse(p.startTime ?? ''),
+          _dateFrom,
+          _dateTo,
+        )) {
+          return false;
+        }
+        if (_search.trim().isNotEmpty) {
+          final q = _search.trim().toLowerCase();
+          if (!p.fullName.toLowerCase().contains(q) &&
+              !(p.phoneNumber ?? '').toLowerCase().contains(q)) {
+            return false;
+          }
+        }
+        return true;
+      }).toList();
 
   String _priorityLabel(String v) {
     if (v == 'All') return 'All Priorities';
@@ -1053,8 +1099,18 @@ class _PatientsSectionState extends State<_PatientsSection>
     try {
       final dt = DateTime.parse(raw).toLocal();
       const m = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return '${dt.day} ${m[dt.month - 1]} ${dt.year}';
     } catch (_) {
@@ -1072,11 +1128,12 @@ class _PatientsSectionState extends State<_PatientsSection>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PatientDetailPage(
-          userRole: widget.userRole,
-          userName: widget.userName,
-          initialPatientId: patient.patientId,
-        ),
+        builder:
+            (_) => PatientDetailPage(
+              userRole: widget.userRole,
+              userName: widget.userName,
+              initialPatientId: patient.patientId,
+            ),
       ),
     );
   }
@@ -1114,8 +1171,7 @@ class _PatientsSectionState extends State<_PatientsSection>
                 ),
               ),
               OutlinedButton.icon(
-                onPressed:
-                    _isLoading ? null : () => _fetch(showLoader: false),
+                onPressed: _isLoading ? null : () => _fetch(showLoader: false),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Refresh'),
                 style: OutlinedButton.styleFrom(
@@ -1241,12 +1297,13 @@ class _PatientsSectionState extends State<_PatientsSection>
             TableRow(
               children: List.generate(
                 7,
-                (i) => i == 3
-                    ? _dataCell(
-                        'No patients found for the current filters.',
-                        align: TextAlign.center,
-                      )
-                    : _dataCell(''),
+                (i) =>
+                    i == 3
+                        ? _dataCell(
+                          'No patients found for the current filters.',
+                          align: TextAlign.center,
+                        )
+                        : _dataCell(''),
               ),
             ),
         ],
@@ -1380,7 +1437,8 @@ class _RoomsSectionState extends State<_RoomsSection>
       if (!mounted) return;
       setState(() => _rooms = rooms);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Failed to load rooms. Check connectivity.');
+      if (mounted)
+        setState(() => _error = 'Failed to load rooms. Check connectivity.');
     } finally {
       if (mounted) {
         setState(() {
@@ -1391,23 +1449,23 @@ class _RoomsSectionState extends State<_RoomsSection>
     }
   }
 
-  List<RoomResponse> get _filtered => _rooms.where((r) {
-    if (_statusFilter != 'All' &&
-        r.status.toLowerCase() != _statusFilter) {
-      return false;
-    }
-    if (!_inDateRange(r.createdAt, _dateFrom, _dateTo)) {
-      return false;
-    }
-    if (_search.trim().isNotEmpty) {
-      final q = _search.trim().toLowerCase();
-      if (!r.roomName.toLowerCase().contains(q) &&
-          !r.roomType.toLowerCase().contains(q)) {
-        return false;
-      }
-    }
-    return true;
-  }).toList();
+  List<RoomResponse> get _filtered =>
+      _rooms.where((r) {
+        if (_statusFilter != 'All' && r.status.toLowerCase() != _statusFilter) {
+          return false;
+        }
+        if (!_inDateRange(r.createdAt, _dateFrom, _dateTo)) {
+          return false;
+        }
+        if (_search.trim().isNotEmpty) {
+          final q = _search.trim().toLowerCase();
+          if (!r.roomName.toLowerCase().contains(q) &&
+              !r.roomType.toLowerCase().contains(q)) {
+            return false;
+          }
+        }
+        return true;
+      }).toList();
 
   String _label(String v) {
     if (v.trim().isEmpty) return 'Unknown';
@@ -1436,107 +1494,126 @@ class _RoomsSectionState extends State<_RoomsSection>
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: const Text(
-            'Add Room',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: SizedBox(
-            width: 520,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (modalError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        modalError!,
-                        style: const TextStyle(color: _accentGold),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setModal) => AlertDialog(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  title: const Text(
+                    'Add Room',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  content: SizedBox(
+                    width: 520,
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (modalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                modalError!,
+                                style: const TextStyle(color: _accentGold),
+                              ),
+                            ),
+                          _formField(
+                            nameCtrl,
+                            'Room Name',
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            typeCtrl,
+                            'Room Type',
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            floorCtrl,
+                            'Floor (optional)',
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            capacityCtrl,
+                            'Capacity',
+                            keyboardType: TextInputType.number,
+                            validator: _required,
+                          ),
+                        ],
                       ),
                     ),
-                  _formField(nameCtrl, 'Room Name', validator: _required),
-                  const SizedBox(height: 10),
-                  _formField(typeCtrl, 'Room Type', validator: _required),
-                  const SizedBox(height: 10),
-                  _formField(
-                    floorCtrl,
-                    'Floor (optional)',
-                    keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 10),
-                  _formField(
-                    capacityCtrl,
-                    'Capacity',
-                    keyboardType: TextInputType.number,
-                    validator: _required,
-                  ),
-                ],
-              ),
-            ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          submitting ? null : () => Navigator.of(ctx).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _primaryGreen,
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          submitting
+                              ? null
+                              : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                setModal(() {
+                                  submitting = true;
+                                  modalError = null;
+                                });
+                                try {
+                                  final floor =
+                                      floorCtrl.text.trim().isEmpty
+                                          ? null
+                                          : int.tryParse(floorCtrl.text.trim());
+                                  final capacity =
+                                      int.tryParse(capacityCtrl.text.trim()) ??
+                                      1;
+                                  final msg =
+                                      await ApiService.requestRoomCreate(
+                                        facilityId: widget.facilityId!,
+                                        roomName: nameCtrl.text.trim(),
+                                        roomType: typeCtrl.text.trim(),
+                                        floorNumber: floor,
+                                        capacity: capacity,
+                                      );
+                                  if (!mounted) return;
+                                  Navigator.of(ctx).pop();
+                                  _fetch(showLoader: false);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(msg),
+                                      backgroundColor: _primaryGreen,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  setModal(() {
+                                    submitting = false;
+                                    modalError = e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
+                                  });
+                                }
+                              },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryGreen,
+                        foregroundColor: Colors.black,
+                      ),
+                      child:
+                          submitting ? _submitLoader() : const Text('Submit'),
+                    ),
+                  ],
+                ),
           ),
-          actions: [
-            TextButton(
-              onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
-              style: TextButton.styleFrom(foregroundColor: _primaryGreen),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: submitting
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      setModal(() {
-                        submitting = true;
-                        modalError = null;
-                      });
-                      try {
-                        final floor = floorCtrl.text.trim().isEmpty
-                            ? null
-                            : int.tryParse(floorCtrl.text.trim());
-                        final capacity =
-                            int.tryParse(capacityCtrl.text.trim()) ?? 1;
-                        final msg = await ApiService.requestRoomCreate(
-                          facilityId: widget.facilityId!,
-                          roomName: nameCtrl.text.trim(),
-                          roomType: typeCtrl.text.trim(),
-                          floorNumber: floor,
-                          capacity: capacity,
-                        );
-                        if (!mounted) return;
-                        Navigator.of(ctx).pop();
-                        _fetch(showLoader: false);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(msg),
-                            backgroundColor: _primaryGreen,
-                          ),
-                        );
-                      } catch (e) {
-                        setModal(() {
-                          submitting = false;
-                          modalError = e
-                              .toString()
-                              .replaceFirst('Exception: ', '');
-                        });
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryGreen,
-                foregroundColor: Colors.black,
-              ),
-              child: submitting ? _submitLoader() : const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1547,116 +1624,136 @@ class _RoomsSectionState extends State<_RoomsSection>
     final floorCtrl = TextEditingController(
       text: room.floorNumber?.toString() ?? '',
     );
-    final capacityCtrl = TextEditingController(
-      text: room.capacity.toString(),
-    );
+    final capacityCtrl = TextEditingController(text: room.capacity.toString());
     bool submitting = false;
     String? modalError;
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: const Text(
-            'Edit Room',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: SizedBox(
-            width: 520,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (modalError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        modalError!,
-                        style: const TextStyle(color: _accentGold),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setModal) => AlertDialog(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  title: const Text(
+                    'Edit Room',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  content: SizedBox(
+                    width: 520,
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (modalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                modalError!,
+                                style: const TextStyle(color: _accentGold),
+                              ),
+                            ),
+                          _formField(
+                            nameCtrl,
+                            'Room Name',
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            typeCtrl,
+                            'Room Type',
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            floorCtrl,
+                            'Floor (optional)',
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 10),
+                          _formField(
+                            capacityCtrl,
+                            'Capacity',
+                            keyboardType: TextInputType.number,
+                            validator: _required,
+                          ),
+                        ],
                       ),
                     ),
-                  _formField(nameCtrl, 'Room Name', validator: _required),
-                  const SizedBox(height: 10),
-                  _formField(typeCtrl, 'Room Type', validator: _required),
-                  const SizedBox(height: 10),
-                  _formField(
-                    floorCtrl,
-                    'Floor (optional)',
-                    keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 10),
-                  _formField(
-                    capacityCtrl,
-                    'Capacity',
-                    keyboardType: TextInputType.number,
-                    validator: _required,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
-              style: TextButton.styleFrom(foregroundColor: _primaryGreen),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: submitting
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setModal(() {
-                        submitting = true;
-                        modalError = null;
-                      });
-                      final messenger = ScaffoldMessenger.of(context);
-                      try {
-                        final updates = <String, dynamic>{
-                          'room_name': nameCtrl.text.trim(),
-                          'room_type': typeCtrl.text.trim(),
-                          'capacity':
-                              int.tryParse(capacityCtrl.text.trim()) ?? 1,
-                          'floor_number': floorCtrl.text.trim().isEmpty
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          submitting ? null : () => Navigator.of(ctx).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _primaryGreen,
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          submitting
                               ? null
-                              : int.tryParse(floorCtrl.text.trim()),
-                        };
-                        final msg = await ApiService.requestRoomUpdate(
-                          room.roomId,
-                          updates,
-                        );
-                        if (!mounted) return;
-                        Navigator.of(ctx).pop();
-                        _fetch(showLoader: false);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(msg),
-                            backgroundColor: _primaryGreen,
-                          ),
-                        );
-                      } catch (e) {
-                        setModal(() {
-                          submitting = false;
-                          modalError = e
-                              .toString()
-                              .replaceFirst('Exception: ', '');
-                        });
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryGreen,
-                foregroundColor: Colors.black,
-              ),
-              child: submitting ? _submitLoader() : const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+                              : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                setModal(() {
+                                  submitting = true;
+                                  modalError = null;
+                                });
+                                final messenger = ScaffoldMessenger.of(context);
+                                try {
+                                  final updates = <String, dynamic>{
+                                    'room_name': nameCtrl.text.trim(),
+                                    'room_type': typeCtrl.text.trim(),
+                                    'capacity':
+                                        int.tryParse(
+                                          capacityCtrl.text.trim(),
+                                        ) ??
+                                        1,
+                                    'floor_number':
+                                        floorCtrl.text.trim().isEmpty
+                                            ? null
+                                            : int.tryParse(
+                                              floorCtrl.text.trim(),
+                                            ),
+                                  };
+                                  final msg =
+                                      await ApiService.requestRoomUpdate(
+                                        room.roomId,
+                                        updates,
+                                      );
+                                  if (!mounted) return;
+                                  Navigator.of(ctx).pop();
+                                  _fetch(showLoader: false);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(msg),
+                                      backgroundColor: _primaryGreen,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  setModal(() {
+                                    submitting = false;
+                                    modalError = e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
+                                  });
+                                }
+                              },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryGreen,
+                        foregroundColor: Colors.black,
+                      ),
+                      child: submitting ? _submitLoader() : const Text('Save'),
+                    ),
+                  ],
+                ),
+          ),
     );
   }
 
@@ -1664,10 +1761,7 @@ class _RoomsSectionState extends State<_RoomsSection>
     final target =
         room.status.toLowerCase() == 'active' ? 'inactive' : 'active';
     try {
-      await ApiService.updateRoomStatus(
-        roomId: room.roomId,
-        status: target,
-      );
+      await ApiService.updateRoomStatus(roomId: room.roomId, status: target);
       if (!mounted) return;
       _fetch(showLoader: false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1720,8 +1814,7 @@ class _RoomsSectionState extends State<_RoomsSection>
                 ),
               ),
               OutlinedButton.icon(
-                onPressed:
-                    _isLoading ? null : () => _fetch(showLoader: false),
+                onPressed: _isLoading ? null : () => _fetch(showLoader: false),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Refresh'),
                 style: OutlinedButton.styleFrom(
@@ -1768,8 +1861,8 @@ class _RoomsSectionState extends State<_RoomsSection>
                   items: _statusOptions,
                   icon: Icons.filter_alt_outlined,
                   itemLabel: (v) => v == 'All' ? 'All' : _label(v),
-                  selectedLabelBuilder: (v) =>
-                      v == 'All' ? 'Filter' : 'Filter ${_label(v)}',
+                  selectedLabelBuilder:
+                      (v) => v == 'All' ? 'Filter' : 'Filter ${_label(v)}',
                   onChanged: (v) {
                     if (v != null) setState(() => _statusFilter = v);
                   },
@@ -1862,12 +1955,13 @@ class _RoomsSectionState extends State<_RoomsSection>
             TableRow(
               children: List.generate(
                 7,
-                (i) => i == 2
-                    ? _dataCell(
-                        'No rooms found for the current filters.',
-                        align: TextAlign.center,
-                      )
-                    : _dataCell(''),
+                (i) =>
+                    i == 2
+                        ? _dataCell(
+                          'No rooms found for the current filters.',
+                          align: TextAlign.center,
+                        )
+                        : _dataCell(''),
               ),
             ),
         ],
@@ -1923,10 +2017,7 @@ class _RoomsSectionState extends State<_RoomsSection>
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
                 side: BorderSide(color: toggleColor.withAlpha(120)),

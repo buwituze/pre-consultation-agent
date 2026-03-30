@@ -106,14 +106,14 @@ def _greeting(language: Optional[str]) -> str:
     if language == "kinyarwanda":
         return (
             "Murakaza neza. Ndi sisitemu ifasha muganga wawe gutegura ikiganiro cyanyu. "
-            "Nzabaza ibibazo bike kugirango amakuru yanyu ategurwe mbere yuko muganga abakira. "
-            "Muzahura na muganga wawe nyuma y'iki giganiro. Twatangira?"
+            "Ndabaza ibibazo bike kugirango amakuru yanyu ategurwe mbere yuko muganga abakira. "
+            "Twatangira?"
         )
     if language == "english":
         return (
             "Welcome. I am a pre-consultation assistant, not a doctor. "
             "I will ask you a few questions so your doctor can review your case before meeting you. "
-            "Your doctor will see you shortly after. Ready to begin?"
+            "Ready to begin?"
         )
     # No selection — offer both
     return "Welcome / Murakaza neza. Please speak to begin. / Vuga kugirango utangire."
