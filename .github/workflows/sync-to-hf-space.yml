@@ -18,5 +18,5 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git remote add hf-space https://huggingface.co/spaces/Benithatuze/eleza-backend
+          git remote add hf-space https://Benithatuze:$HF_TOKEN@huggingface.co/spaces/Benithatuze/eleza-backend
           git push hf-space main --force
