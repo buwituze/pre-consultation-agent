@@ -719,18 +719,17 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
 
   Widget _structuredInfoCard() {
     final sessionStart = _parseDateTime(_selectedSessionDetail?.startTime);
-    final chiefComplaint =
-        (_patientBrief?.chiefComplaint ??
-                _selectedSessionDetail?.extractionData?['chief_complaint']
+    final chiefComplaint = (_patientBrief?.chiefComplaint?.isNotEmpty == true
+            ? _patientBrief!.chiefComplaint
+            : _selectedSessionDetail?.extractionData?['chief_complaint']
                     ?.toString() ??
                 '--')
-            .trim();
-    final duration =
-        (_patientBrief?.duration ??
-                _selectedSessionDetail?.extractionData?['duration']
-                    ?.toString() ??
+        .trim();
+    final duration = (_patientBrief?.duration?.isNotEmpty == true
+            ? _patientBrief!.duration!
+            : _selectedSessionDetail?.extractionData?['duration']?.toString() ??
                 '--')
-            .trim();
+        .trim();
     final suggestedIssue =
         (_patientBrief?.suspectedIssue ??
                 _selectedSessionDetail?.prediction?['predicted_condition']
@@ -747,6 +746,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       redFlagLines.add('Potential red flags detected in extraction data.');
     }
 
+    final narrativeSummary = (_patientBrief?.narrativeSummary ?? '').trim();
+    final keyFindings = _patientBrief?.keyFindings ?? [];
     final symptoms = _symptomItems();
 
     return _panelShell(
@@ -778,6 +779,17 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             'Suggested Issues',
             suggestedIssue.isEmpty ? '--' : suggestedIssue,
           ),
+          const SizedBox(height: 10),
+          _sectionTitle('Narrative Notes'),
+          if (narrativeSummary.isEmpty)
+            _bulletText('--')
+          else
+            _bulletText(narrativeSummary),
+          if (keyFindings.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _sectionTitle('Key Findings'),
+            ...keyFindings.map(_bulletText),
+          ],
         ],
       ),
     );
@@ -788,6 +800,9 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     final age = _resolvedAge != null ? '${_resolvedAge!} years old' : '--';
     final phone = (_selectedPatientDetail?.phoneNumber ?? '').trim();
     final language = (_selectedPatientDetail?.preferredLanguage ?? '').trim();
+    final queueNumber = _selectedListItem?.queueNumber;
+    final queueStatus = (_selectedListItem?.queueStatus ?? '').trim();
+    final priority = (_selectedListItem?.priority ?? '').trim();
 
     return _panelShell(
       padding: const EdgeInsets.all(16),
@@ -799,6 +814,18 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           _fieldRow('Phone', phone.isEmpty ? '--' : phone),
           _fieldRow('Residency', _resolvedResidency),
           _fieldRow('Language', language.isEmpty ? '--' : language),
+          _fieldRow(
+            'Queue Number',
+            queueNumber != null ? '#$queueNumber' : '--',
+          ),
+          _fieldRow(
+            'Queue Status',
+            queueStatus.isEmpty ? '--' : queueStatus,
+          ),
+          _fieldRow(
+            'Priority',
+            priority.isEmpty ? '--' : priority.toUpperCase(),
+          ),
         ],
       ),
     );

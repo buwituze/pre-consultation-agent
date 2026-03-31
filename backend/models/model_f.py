@@ -104,16 +104,25 @@ Understood. JSON brief only, no diagnosis.
         }
 
     return {
-        "session_id":        session_id,
-        "timestamp":         datetime.datetime.now().isoformat(),
-        "priority_flag":     score.get("priority", "UNKNOWN"),
-        "suspected_issue":   score.get("suspected_issue", "not determined"),
-        "score_confidence":  score.get("confidence", 0.0),
-        "narrative_summary": gemini_out.get("narrative_summary", ""),
-        "key_findings":      gemini_out.get("key_findings", []),
-        "red_flag_note":     gemini_out.get("red_flag_note", ""),
-        "conversation_log":  [{"question": q, "answer": a} for q, a in zip(questions_asked, patient_answers)],
-        "raw_transcript":    transcript,
-        "language":          language,
-        "patient_age":       patient_age,
+        "session_id":          session_id,
+        "timestamp":           datetime.datetime.now().isoformat(),
+        # Extraction fields the frontend reads from doctor_brief
+        "chief_complaint":     extraction.get("chief_complaint", ""),
+        "body_part":           extraction.get("body_part"),
+        "duration":            extraction.get("duration"),
+        "severity":            extraction.get("severity"),
+        "associated_symptoms": extraction.get("associated_symptoms") or [],
+        # Score fields the frontend reads from doctor_brief
+        "priority":            score.get("priority", "UNKNOWN"),
+        "suspected_issue":     score.get("suspected_issue", "not determined"),
+        "confidence_score":    score.get("confidence", 0.0),
+        "risk_factors":        score.get("risk_factors") or [],
+        # Gemini-generated fields
+        "narrative_summary":   gemini_out.get("narrative_summary", ""),
+        "key_findings":        gemini_out.get("key_findings", []),
+        "red_flag_note":       gemini_out.get("red_flag_note", ""),
+        "conversation_log":    [{"question": q, "answer": a} for q, a in zip(questions_asked, patient_answers)],
+        "raw_transcript":      transcript,
+        "language":            language,
+        "patient_age":         patient_age,
     }
