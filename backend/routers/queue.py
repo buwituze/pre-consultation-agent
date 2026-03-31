@@ -9,6 +9,7 @@ GET    /queue/doctor/me               → get queue for current doctor
 """
 
 from typing import Optional, List
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
@@ -59,9 +60,9 @@ class QueueEntryResponse(BaseModel):
     doctor_name: Optional[str]
     room_name: Optional[str]
     facility_name: str
-    created_at: str
-    started_at: Optional[str]
-    completed_at: Optional[str]
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     required_exams: Optional[List[str]] = None
 
 
@@ -178,17 +179,23 @@ def complete_examination(
 @router.get("", response_model=list[QueueEntryResponse])
 def get_facility_queue(
     status: Optional[str] = Query(None, description="Filter by status"),
+    session_id: Optional[int] = Query(None, description="Filter by session ID"),
     current_user: dict = Depends(require_role("doctor", "hospital_admin", "platform_admin"))
 ):
     """
     Get queue for the current user's facility.
     Platform admin must specify facility_id as query param.
     """
+    if session_id is not None:
+        entry = QueueDB.get_queue_entry_by_session(session_id)
+        if not entry:
+            return []
+        return [QueueEntryResponse(**entry)]
+
     facility_id = current_user.get('facility_id')
-    
     if not facility_id:
         raise HTTPException(status_code=400, detail="User not assigned to a facility")
-    
+
     queue = QueueDB.get_facility_queue(facility_id, status)
     return [QueueEntryResponse(**entry) for entry in queue]
 

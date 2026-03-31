@@ -606,6 +606,14 @@ class QueueDB:
     def get_queue_by_session(session_id: int) -> Optional[Dict]:
         query = "SELECT * FROM examination_queue WHERE session_id = %s"
         return DatabaseConnection.execute_query(query, (session_id,), fetch_one=True)
+
+    @staticmethod
+    def get_queue_entry_by_session(session_id: int) -> Optional[Dict]:
+        query = """
+            SELECT * FROM v_queue_overview
+            WHERE queue_id = (SELECT queue_id FROM examination_queue WHERE session_id = %s LIMIT 1)
+        """
+        return DatabaseConnection.execute_query(query, (session_id,), fetch_one=True)
     
     @staticmethod
     def get_facility_queue(facility_id: int, status: Optional[str] = None) -> List[Dict]:

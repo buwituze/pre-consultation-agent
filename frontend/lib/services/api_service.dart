@@ -19,8 +19,8 @@ class ApiService {
   // Automatically detect the correct base URL based on platform
   static String get baseUrl {
     if (kIsWeb) {
-      // For Flutter Web in local dev. all the apps on any device should look at this nGrok link
-      return 'https://boisterously-implicatory-anderson.ngrok-free.dev';
+      return 'https://boisterously-implicatory-anderson.ngrok-free.dev'; // ngrok (local dev)
+      // return 'https://benithatuze-eleza-backend.hf.space'; // HuggingFace Space
     }
 
     final envUrl =
