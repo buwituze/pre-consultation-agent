@@ -12,8 +12,17 @@ from typing import Optional, List, Dict
 from google import genai
 from .gemini_utils import generate_with_fallback
 
-# Initialize Gemini client
-_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# Lazy-initialized Gemini client — avoids crashing at import time if key is missing
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 # ============================================================================
 # SCHEMAS
@@ -110,7 +119,7 @@ Output (pure {target_language} only):"""
     
     try:
         response = generate_with_fallback(
-            _client,
+            _get_client(),
             contents=prompt,
             config={
                 'temperature': 0.0,
@@ -194,7 +203,7 @@ Extract routing information as JSON:"""
     
     try:
         response = generate_with_fallback(
-            _client,
+            _get_client(),
             contents=prompt,
             config={
                 'temperature': 0.0,
@@ -321,7 +330,7 @@ Extract all clinical information as JSON:"""
     
     try:
         response = generate_with_fallback(
-            _client,
+            _get_client(),
             contents=prompt,
             config={
                 'temperature': 0.0,
