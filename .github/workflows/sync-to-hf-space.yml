@@ -27,7 +27,7 @@ jobs:
           cp -r backend /tmp/hf-space/
 
           cd /tmp/hf-space
-          git init
+          git init -b main
           git add .
           git commit -m "Deploy ${{ github.sha }}"
           git remote add hf-space https://Benithatuze:$HF_TOKEN@huggingface.co/spaces/Benithatuze/eleza-backend
