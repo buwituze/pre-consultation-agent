@@ -10,7 +10,7 @@ services:
     #   - Pro Plus (8 GB, $175/mo) — safest choice, comfortable headroom.
     #   - Pro       (4 GB,  $85/mo) — works only if model_a.py is changed to
     #                                  use float16 on CPU (DTYPE = torch.float16).
-    plan: pro-plus
+    plan: pro
     healthCheckPath: /health
     envVars:
       - key: DEVICE

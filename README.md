@@ -1,3 +1,13 @@
+---
+title: Eleza Pre-Consultation Backend
+emoji: 🏥
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Pre-Consultation Agent
 
 For component specific details, see:
