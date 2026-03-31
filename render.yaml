@@ -63,6 +63,10 @@ services:
       # Generate one at: Google Account → Security → 2-Step Verification → App passwords
       - key: SMTP_PASSWORD
         sync: false
+      # The public URL of this backend — used in confirmation email links.
+      # Set to your HF Space URL or Render URL once deployed.
+      - key: PUBLIC_API_BASE_URL
+        sync: false
       - key: APP_LOGIN_URL
         sync: false
       - key: MAX_TURNS
