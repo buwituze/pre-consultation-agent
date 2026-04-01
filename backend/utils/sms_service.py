@@ -79,7 +79,7 @@ def send_queue_assignment_sms(
         greeting = f"Muraho {name}," if name else "Muraho,"
         msg = (
             f"{greeting} ikiganiro cya mbere cyarangiye. "
-            f"Geenda {department} — {location_hint}. "
+            f"Murajya Kuri {department} — {location_hint}. "
             f"Inomero yawe ni #{queue_number}. "
             f"— Eleza"
         )
@@ -113,7 +113,7 @@ def send_exam_assignment_sms(
         greeting = f"Muraho {name}," if name else "Muraho,"
         msg = (
             f"{greeting} wasabwe gukora: {exam_str}. "
-            f"Geenda {location}. "
+            f"Murajya kuri {location}. "
             f"Inomero yawe ni #{queue_number}. "
             f"— Eleza"
         )
