@@ -429,9 +429,10 @@ LEFT JOIN examination_queue q ON s.session_id = q.session_id
 ORDER BY s.start_time DESC;
 
 CREATE VIEW v_queue_overview AS
-SELECT 
+SELECT
     q.queue_id, q.queue_number, q.queue_status,
     q.queue_name, q.department, q.location_hint,
+    q.required_exams, q.notes,
     p.full_name AS patient_name, p.phone_number,
     pred.risk_level, pred.predicted_condition,
     hw.full_name AS doctor_name,
