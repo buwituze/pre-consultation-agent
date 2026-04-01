@@ -6,15 +6,15 @@ import 'package:http/http.dart' as http;
 
 /// ElevenLabs Text-to-Speech service.
 ///
-/// Uses the "Keza — Rwandan Diaspora" voice (turbo v2.5).
+/// Uses the "Benitha - Rwandan Nurse 1" voice (flash v2.5).
 /// Handles both Kinyarwanda and English.
 /// API key loaded from frontend/.env → ELEVENLABS_API_KEY
 class TTSService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isSpeaking = false;
 
-  static const String _voiceId = 'MM7UurcOvo1kicRwOKhr'; // Keza — Rwandan Diaspora, free tier compatible
-  static const String _modelId = 'eleven_turbo_v2_5';
+  static const String _voiceId = 'cYewvtoDtKjvFBC0o8AH'; // Benitha - Rwandan Nurse 1
+  static const String _modelId = 'eleven_flash_v2_5';
 
   String get _apiKey => dotenv.env['ELEVENLABS_API_KEY'] ?? '';
 
@@ -37,7 +37,11 @@ class TTSService {
           'Content-Type': 'application/json',
           'Accept': 'audio/mpeg',
         },
-        body: jsonEncode({'text': text, 'model_id': _modelId}),
+        body: jsonEncode({
+          'text': text,
+          'model_id': _modelId,
+          'voice_settings': {'stability': 0.50},
+        }),
       );
 
       if (response.statusCode == 200) {
