@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:gif_view/gif_view.dart';
 import '../services/api_service.dart';
 import '../services/audio_service.dart';
 import '../services/tts_service.dart';
@@ -654,10 +655,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                             height: constraints.maxWidth > 700 ? 150 : 185,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.asset(
+                              child: GifView.asset(
                                 'assets/voice-interface.gif',
                                 fit: BoxFit.contain,
-                                gaplessPlayback: true,
                               ),
                             ),
                           ),

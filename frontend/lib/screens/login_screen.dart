@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import 'legal_dialogs.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -15,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _rememberMe = false;
   bool _obscurePassword = true;
+  bool _agreedToTerms = false;
 
   static const Color _green = Color(0xFF8B9E3A);
 
@@ -230,6 +233,66 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
 
+        const SizedBox(height: 16),
+
+        // Terms agreement
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Checkbox(
+                value: _agreedToTerms,
+                onChanged: (value) {
+                  setState(() {
+                    _agreedToTerms = value ?? false;
+                  });
+                },
+                activeColor: _green,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  children: [
+                    const TextSpan(text: 'I agree to the '),
+                    TextSpan(
+                      text: 'Terms of Service',
+                      style: const TextStyle(
+                        color: _green,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: _green,
+                      ),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () => showTermsOfService(context),
+                    ),
+                    const TextSpan(text: ' and '),
+                    TextSpan(
+                      text: 'Privacy Policy',
+                      style: const TextStyle(
+                        color: _green,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: _green,
+                      ),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () => showPrivacyPolicy(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+
         const SizedBox(height: 28),
 
         // Login button
@@ -376,6 +439,18 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter email and password'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please read and accept the Terms of Service and Privacy Policy to continue.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
