@@ -242,8 +242,28 @@ def assign_queue_entry(
         exams=request.required_exams,
         notes=request.notes
     )
-    
-    return {"message": "Patient assigned successfully", "queue_entry": QueueDB.get_queue_entry(queue_id)}
+
+    updated_entry = QueueDB.get_queue_entry(queue_id)
+
+    if request.required_exams and entry.get("phone_number"):
+        try:
+            from utils.sms_service import send_exam_assignment_sms
+            from database.database import PatientDB
+            patient = PatientDB.get_patient_by_phone(entry["phone_number"])
+            language = (patient or {}).get("preferred_language", "english")
+            send_exam_assignment_sms(
+                patient_name=entry.get("patient_name", ""),
+                phone_number=entry["phone_number"],
+                queue_number=entry.get("queue_number", 0),
+                required_exams=request.required_exams,
+                room_name=(updated_entry or {}).get("room_name"),
+                location_hint=entry.get("location_hint"),
+                language=language,
+            )
+        except Exception as _sms_exc:
+            print(f"⚠️ SMS notification failed: {_sms_exc}")
+
+    return {"message": "Patient assigned successfully", "queue_entry": updated_entry}
 
 
 @router.post("/session/{session_id}/assign-room")
@@ -290,6 +310,25 @@ def assign_room_for_session(
     )
 
     updated = QueueDB.get_queue_entry(queue_row['queue_id'])
+
+    if updated and updated.get("phone_number"):
+        try:
+            from utils.sms_service import send_exam_assignment_sms
+            from database.database import PatientDB
+            patient = PatientDB.get_patient_by_phone(updated["phone_number"])
+            language = (patient or {}).get("preferred_language", "english")
+            send_exam_assignment_sms(
+                patient_name=updated.get("patient_name", ""),
+                phone_number=updated["phone_number"],
+                queue_number=updated.get("queue_number", 0),
+                required_exams=exams,
+                room_name=updated.get("room_name"),
+                location_hint=updated.get("location_hint"),
+                language=language,
+            )
+        except Exception as _sms_exc:
+            print(f"⚠️ SMS notification failed: {_sms_exc}")
+
     return {
         "message": "Room assigned successfully",
         "queue_entry": updated,

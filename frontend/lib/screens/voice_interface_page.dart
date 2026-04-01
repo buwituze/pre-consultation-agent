@@ -657,6 +657,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                               child: Image.asset(
                                 'assets/voice-interface.gif',
                                 fit: BoxFit.contain,
+                                gaplessPlayback: true,
                               ),
                             ),
                           ),

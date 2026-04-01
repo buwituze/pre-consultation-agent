@@ -831,6 +831,21 @@ async def kiosk_finish(
         )
         print(f"✅ Created queue entry #{queue_entry['queue_number']}")
 
+        # 5a. Notify patient by SMS now that their queue number is confirmed.
+        try:
+            from utils.sms_service import send_queue_assignment_sms
+            sms_ok, sms_err = send_queue_assignment_sms(
+                patient_name=full_name,
+                phone_number=phone_number,
+                queue_number=queue_entry["queue_number"],
+                department=routing.department,
+                location_hint=routing.location_hint,
+                language=session.language or "english",
+            )
+            print(f"✅ SMS sent to {phone_number}" if sms_ok else f"⚠️ SMS not sent: {sms_err}")
+        except Exception as _sms_exc:
+            print(f"⚠️ SMS notification failed: {_sms_exc}")
+
         # 6. Attach routing destination and queue details to doctor-facing info.
         session.doctor_brief["routing_assignment"] = {
             "department": routing.department,
