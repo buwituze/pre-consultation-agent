@@ -7,7 +7,9 @@
 --          successfully assigned exams.
 -- ============================================================================
 
-CREATE OR REPLACE VIEW v_queue_overview AS
+DROP VIEW IF EXISTS v_queue_overview;
+
+CREATE VIEW v_queue_overview AS
 SELECT
     q.queue_id, q.queue_number, q.queue_status,
     q.queue_name, q.department, q.location_hint,

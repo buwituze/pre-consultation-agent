@@ -312,14 +312,55 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       severityScore = (severityRaw.toDouble() / 10.0).clamp(0.0, 1.0);
     } else if (severityRaw is String) {
       final parsed = double.tryParse(severityRaw);
-      if (parsed != null) severityScore = (parsed / 10.0).clamp(0.0, 1.0);
+      if (parsed != null) {
+        severityScore = (parsed / 10.0).clamp(0.0, 1.0);
+      } else {
+        severityScore = _severityTextToScore(severityRaw);
+      }
+    }
+    // Fallback: use doctorBrief severity text when no numeric value
+    if (severityScore == 0.0) {
+      final severityText = _patientBrief?.severity ?? '';
+      if (severityText.isNotEmpty) {
+        severityScore = _severityTextToScore(severityText);
+      }
     }
 
     return [
       _GraphDatum(label: 'Model', value: modelConfidence),
       _GraphDatum(label: 'Transcript', value: transcriptQuality),
-      _GraphDatum(label: 'Severity', value: severityScore),
+      _GraphDatum(
+        label: 'Severity',
+        value: severityScore,
+        barColor: _severityColor(severityScore),
+      ),
     ];
+  }
+
+  double _severityTextToScore(String text) {
+    switch (text.trim().toLowerCase()) {
+      case 'mild':
+        return 0.25;
+      case 'low':
+        return 0.30;
+      case 'moderate':
+      case 'medium':
+        return 0.60;
+      case 'high':
+        return 0.80;
+      case 'severe':
+        return 0.90;
+      case 'critical':
+        return 1.0;
+      default:
+        return 0.0;
+    }
+  }
+
+  Color _severityColor(double score) {
+    if (score >= 0.75) return const Color(0xFFDC2626);
+    if (score >= 0.45) return const Color(0xFFF59E0B);
+    return _kGreen;
   }
 
   @override
@@ -1018,7 +1059,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children:
             data.map((entry) {
-              final h = (entry.value * 100) + 18;
+              final h = (entry.value * 100).clamp(2.0, 100.0);
               return Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -1027,15 +1068,17 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                     style: const TextStyle(fontSize: 11, color: _kTextMuted),
                   ),
                   const SizedBox(height: 4),
-                  Container(
-                    width: 44,
-                    height: h,
-                    decoration: BoxDecoration(
-                      color: _kGreen,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(4),
+                  Flexible(
+                    child: Container(
+                      width: 44,
+                      height: h,
+                      decoration: BoxDecoration(
+                        color: entry.barColor ?? _kGreen,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(4),
+                        ),
+                        border: Border.all(color: _kBorder),
                       ),
-                      border: Border.all(color: _kBorder),
                     ),
                   ),
                   Container(
@@ -1292,8 +1335,9 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
 class _GraphDatum {
   final String label;
   final double value;
+  final Color? barColor;
 
-  const _GraphDatum({required this.label, required this.value});
+  const _GraphDatum({required this.label, required this.value, this.barColor});
 }
 
 class PatientBrief {
