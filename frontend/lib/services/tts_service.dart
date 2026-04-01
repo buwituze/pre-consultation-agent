@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
+// Web-only import for Blob URL playback
+import 'tts_service_web.dart' if (dart.library.io) 'tts_service_io.dart'
+    as platform;
+
 /// ElevenLabs Text-to-Speech service.
 ///
 /// Uses the "Benitha - Rwandan Nurse 1" voice (flash v2.5).
@@ -59,8 +63,7 @@ class TTSService {
   }
 
   /// Speak text using ElevenLabs TTS.
-  /// The Keza voice handles both Kinyarwanda and English via the
-  /// eleven_multilingual_v2 model — no language parameter needed.
+  /// Benitha handles both Kinyarwanda and English — no language parameter needed.
   Future<void> speak(String text, {String language = 'english'}) async {
     if (text.isEmpty) return;
 
@@ -70,7 +73,7 @@ class TTSService {
     try {
       final audioBytes = await _synthesize(text);
       if (audioBytes != null) {
-        await _audioPlayer.play(BytesSource(audioBytes));
+        await platform.playAudioBytes(_audioPlayer, audioBytes);
         await _audioPlayer.onPlayerComplete.first;
       } else {
         // Fallback: simulate speaking duration
