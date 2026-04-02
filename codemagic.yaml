@@ -19,10 +19,8 @@ workflows:
     scripts:
       - name: Write .env file
         script: |
-          cat > frontend/.env <<EOF
-ELEVENLABS_API_KEY=$ELEVENLABS_API_KEY
-API_BASE_URL=$API_BASE_URL
-EOF
+          echo "ELEVENLABS_API_KEY=$ELEVENLABS_API_KEY" > frontend/.env
+          echo "API_BASE_URL=$API_BASE_URL" >> frontend/.env
 
       - name: Get Flutter packages
         script: cd frontend && flutter pub get
