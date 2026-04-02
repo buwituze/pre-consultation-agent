@@ -72,7 +72,9 @@ workflows:
           success: true
           failure: true
       app_store_connect:
-        auth: integration        # uses the API key from ios_signing group
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         beta_groups:
           - "Internal Testers"
