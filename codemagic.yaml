@@ -17,15 +17,15 @@ workflows:
         - $FLUTTER_ROOT/.pub-cache
 
     scripts:
-      - name: Get Flutter packages
-        script: cd frontend && flutter pub get
-
       - name: Write .env file
         script: |
           cat > frontend/.env <<EOF
-          ELEVENLABS_API_KEY=$ELEVENLABS_API_KEY
-          API_BASE_URL=$API_BASE_URL
-          EOF
+ELEVENLABS_API_KEY=$ELEVENLABS_API_KEY
+API_BASE_URL=$API_BASE_URL
+EOF
+
+      - name: Get Flutter packages
+        script: cd frontend && flutter pub get
 
       - name: Build web
         script: cd frontend && flutter build web --release
