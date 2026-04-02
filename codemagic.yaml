@@ -10,7 +10,8 @@ workflows:
 
     environment:
       flutter: stable
-      # Add ELEVENLABS_API_KEY and API_BASE_URL directly in Codemagic app settings → Environment variables
+      groups:
+        - goup-name
 
     cache:
       cache_paths:
