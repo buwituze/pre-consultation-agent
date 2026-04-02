@@ -1,0 +1,153 @@
+workflows:
+
+  # ─────────────────────────────────────────────────────────────
+  # iOS – primary build targeting iPhone 15 / App Store
+  # ─────────────────────────────────────────────────────────────
+  ios-release:
+    name: iOS Release (iPhone 15)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      # Create this group in Codemagic → Teams → Global variables & secrets
+      # Required vars: APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER,
+      #                APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY
+      groups:
+        - ios_signing
+      vars:
+        BUNDLE_ID: "com.example.frontend"   # TODO: change to your real bundle ID
+
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files \
+            "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Get Flutter packages
+        script: cd frontend && flutter pub get
+
+      - name: Flutter analyze
+        script: cd frontend && flutter analyze --no-fatal-infos
+
+      - name: Flutter test
+        script: cd frontend && flutter test
+
+      - name: Build iOS .ipa
+        script: |
+          cd frontend
+          flutter build ipa \
+            --release \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - frontend/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      email:
+        recipients:
+          - your@email.com    # TODO: replace with your email
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration        # uses the API key from ios_signing group
+        submit_to_testflight: true
+        beta_groups:
+          - "Internal Testers"
+
+
+  # ─────────────────────────────────────────────────────────────
+  # Android – secondary build (APK + AAB for Play Store)
+  # ─────────────────────────────────────────────────────────────
+  android-release:
+    name: Android Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: stable
+      # Create this group in Codemagic → Teams → Global variables & secrets
+      # Required vars: CM_KEYSTORE (base64), CM_KEYSTORE_PASSWORD,
+      #                CM_KEY_ALIAS, CM_KEY_PASSWORD
+      groups:
+        - android_signing
+      vars:
+        PACKAGE_NAME: "com.example.frontend"  # TODO: change to your real package name
+
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - name: Set up keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.jks
+          cat >> frontend/android/key.properties <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=/tmp/keystore.jks
+          EOF
+
+      - name: Get Flutter packages
+        script: cd frontend && flutter pub get
+
+      - name: Flutter analyze
+        script: cd frontend && flutter analyze --no-fatal-infos
+
+      - name: Flutter test
+        script: cd frontend && flutter test
+
+      - name: Build Android APK (sideload / direct install)
+        script: cd frontend && flutter build apk --release
+
+      - name: Build Android App Bundle (Play Store)
+        script: cd frontend && flutter build appbundle --release
+
+    artifacts:
+      - frontend/build/app/outputs/flutter-apk/app-release.apk
+      - frontend/build/app/outputs/bundle/release/app-release.aab
+      - frontend/build/app/outputs/**/mapping.txt
+
+    publishing:
+      email:
+        recipients:
+          - your@email.com    # TODO: replace with your email
+        notify:
+          success: true
+          failure: true
+      # Uncomment when ready to push to Play Store:
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      #   submit_as_draft: true
