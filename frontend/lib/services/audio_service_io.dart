@@ -20,21 +20,11 @@ String getPlatformName() {
 }
 
 AudioEncoder getAudioEncoder() {
-  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-    // Mobile and macOS prefer AAC/M4A
-    return AudioEncoder.aacLc;
-  } else {
-    // Windows and Linux use WAV
-    return AudioEncoder.wav;
-  }
+  return AudioEncoder.wav;
 }
 
 String getFileExtension() {
-  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-    return 'm4a';
-  } else {
-    return 'wav';
-  }
+  return 'wav';
 }
 
 Future<void> deleteFile(String path) async {
