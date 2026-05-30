@@ -15,10 +15,10 @@ class FacilitiesPage extends StatefulWidget {
   final String userName;
 
   const FacilitiesPage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
-  }) : super(key: key);
+  });
 
   @override
   State<FacilitiesPage> createState() => _FacilitiesPageState();
@@ -80,11 +80,12 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
       );
       debugPrint('Fetch facilities error: $e');
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _isRefreshing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
